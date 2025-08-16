@@ -1,9 +1,14 @@
 :root {
-  --primary-color: #2563eb;
+  --primary-color: #ffb5a5;
+  --secondary-color: #ffd4c4;
+  --accent-color: #ff6b47;
   --error-color: #dc2626;
-  --text-color: #1f2937;
-  --bg-color: #f3f4f6;
-  --border-color: #e5e7eb;
+  --text-color: #4a4a4a;
+  --bg-color: #fff5f2;
+  --border-color: rgba(255, 181, 165, 0.3);
+  --peach-light: #fff5f2;
+  --peach-primary: #ffb5a5;
+  --peach-dark: #ff8c7a;
 }
 
 * {
@@ -62,7 +67,7 @@ body {
 }
 
 .header-content nav a:hover {
-  color: var(--primary-color);
+  color: var(--accent-color);
 }
 
 .app-main {
@@ -74,13 +79,12 @@ body {
 }
 
 .auth-container {
-  max-width: 400px;
-  margin: 2rem auto;
-  background-color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--peach-light) 0%, var(--secondary-color) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
 }
 

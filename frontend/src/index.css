@@ -9,10 +9,35 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
+  /* Hide scrollbar for webkit browsers */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+}
+
+/* Hide scrollbar for webkit browsers */
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Mobile touch improvements */
+input, button, select, textarea {
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 button {
@@ -25,4 +50,15 @@ button:focus,
 button:focus-visible {
   outline: 2px solid var(--primary-color);
   outline-offset: 2px;
+}
+
+/* Prevent zoom on iOS for form inputs */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  select, textarea, input[type="text"], input[type="password"], 
+  input[type="datetime"], input[type="datetime-local"], 
+  input[type="date"], input[type="month"], input[type="time"], 
+  input[type="week"], input[type="number"], input[type="email"], 
+  input[type="url"] {
+    font-size: 16px;
+  }
 }

@@ -2,6 +2,8 @@ import os
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi import FastAPI
+from fastapi import Request
+
 
 load_dotenv()
 
@@ -25,5 +27,5 @@ def init_mongo(app: FastAPI):
             client.close()
         print("🔌 MongoDB connection closed")
 
-def get_db(request):
+def get_db(request : Request):
     return request.app.state.db
