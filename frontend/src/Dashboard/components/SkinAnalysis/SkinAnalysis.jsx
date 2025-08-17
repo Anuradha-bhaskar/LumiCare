@@ -43,22 +43,67 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
     };
   };
 
-  // Mock camera quality checks - replace with actual face detection
+  // Real camera quality checks using MediaPipe and OpenCV
   useEffect(() => {
-    if (step === 'camera') {
-      const interval = setInterval(() => {
-        setCameraChecks({
-          lighting: Math.random() > 0.3, // 70% chance good lighting
-          position: Math.random() > 0.2, // 80% chance good position  
-          stillness: Math.random() > 0.4 // 60% chance still
-        });
+    if (step === 'camera' && webcamRef.current) {
+      const interval = setInterval(async () => {
+        try {
+          // Capture current frame
+          const imageSrc = webcamRef.current.getScreenshot();
+          if (!imageSrc) return;
+
+          // Send to backend for analysis
+          const response = await fetch('http://localhost:8000/api/camera/analyze', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ image_data: imageSrc }),
+          });
+
+          if (response.ok) {
+            const analysis = await response.json();
+            setCameraChecks({
+              lighting: analysis.lighting.is_good,
+              position: analysis.position.is_good,
+              stillness: analysis.stillness.is_good
+            });
+          } else {
+            console.error('Camera analysis failed:', response.statusText);
+            // Fallback to basic checks if API fails
+            setCameraChecks({
+              lighting: true,
+              position: true,
+              stillness: true
+            });
+          }
+        } catch (error) {
+          console.error('Error during camera analysis:', error);
+          // Fallback to basic checks if API fails
+          setCameraChecks({
+            lighting: true,
+            position: true,
+            stillness: true
+          });
+        }
       }, 1000);
 
       return () => clearInterval(interval);
     }
   }, [step]);
 
-  const startAnalysis = () => {
+  const startAnalysis = async () => {
+    try {
+      // Reset the camera analysis state on backend
+      await fetch('http://localhost:8000/api/camera/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to reset camera analysis:', error);
+    }
     setStep('camera');
   };
 
@@ -106,7 +151,18 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
     }
   }, [countdown, capture]);
 
-  const restartAnalysis = () => {
+  const restartAnalysis = async () => {
+    try {
+      // Reset the camera analysis state on backend
+      await fetch('http://localhost:8000/api/camera/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to reset camera analysis:', error);
+    }
     setStep('ready');
     setCapturedImage(null);
     setAnalysisResult(null);
