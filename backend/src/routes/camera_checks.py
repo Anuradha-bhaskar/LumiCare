@@ -153,14 +153,34 @@ class CameraAnalyzer:
             vertical_tolerance = height * 0.2  # 20% tolerance
             is_centered_vertical = bool(abs(face_center_y - height/2) < vertical_tolerance)
             
-            # Check face size (should be reasonably large)
-            face_width = abs(right_eye_x - left_eye_x) * 3  # Approximate face width
-            min_face_width = width * 0.3  # Face should be at least 30% of image width
-            is_face_size_good = bool(face_width > min_face_width)
+            # Calculate face dimensions for skin analysis
+            # Use more landmarks for better face size estimation
+            # Chin (landmark 152)
+            chin = landmarks.landmark[152]
+            chin_x, chin_y = chin.x * width, chin.y * height
             
-            # Check if face is too close or too far
-            max_face_width = width * 0.8  # Face shouldn't be more than 80% of image width
-            is_face_not_too_close = bool(face_width < max_face_width)
+            # Forehead (landmark 10)
+            forehead = landmarks.landmark[10]
+            forehead_x, forehead_y = forehead.x * width, forehead.y * height
+            
+            # Calculate face height and width more accurately
+            face_height = abs(forehead_y - chin_y)
+            face_width = abs(right_eye_x - left_eye_x) * 3.5  # More accurate face width
+            
+            # Calculate face coverage percentage
+            face_coverage = (face_width * face_height) / (width * height) * 100
+            
+            # For skin analysis, we need a much closer view
+            # Face should fill 60-85% of the image for optimal skin detail detection
+            min_face_coverage = 60  # Minimum face coverage percentage
+            max_face_coverage = 85  # Maximum face coverage percentage
+            
+            is_face_size_good = bool(face_coverage > min_face_coverage)
+            is_face_not_too_close = bool(face_coverage < max_face_coverage)
+            
+            # Debug logging
+            logger.info(f"Face analysis - Width: {face_width:.1f}, Height: {face_height:.1f}, Coverage: {face_coverage:.1f}%")
+            logger.info(f"Coverage check - Min: {min_face_coverage}, Max: {max_face_coverage}, Is good: {is_face_size_good}, Not too close: {is_face_not_too_close}")
             
             # Calculate face tilt
             eye_angle = np.arctan2(right_eye_y - left_eye_y, right_eye_x - left_eye_x)
@@ -171,6 +191,8 @@ class CameraAnalyzer:
             is_good = bool(is_centered_horizontal and is_centered_vertical and 
                       is_face_size_good and is_face_not_too_close and is_face_straight)
             
+            logger.info(f"Position check - Centered H: {is_centered_horizontal}, Centered V: {is_centered_vertical}, Size good: {is_face_size_good}, Not too close: {is_face_not_too_close}, Straight: {is_face_straight}, Final: {is_good}")
+            
             if not is_good:
                 issues = []
                 if not is_centered_horizontal:
@@ -178,7 +200,7 @@ class CameraAnalyzer:
                 if not is_centered_vertical:
                     issues.append("face_not_centered_vertical")
                 if not is_face_size_good:
-                    issues.append("face_too_small")
+                    issues.append("face_too_far")
                 if not is_face_not_too_close:
                     issues.append("face_too_close")
                 if not is_face_straight:
@@ -194,16 +216,21 @@ class CameraAnalyzer:
                 "face_center_x": float(face_center_x),
                 "face_center_y": float(face_center_y),
                 "face_width": float(face_width),
+                "face_height": float(face_height),
+                "face_coverage": float(face_coverage),
                 "face_tilt": float(face_tilt),
                 "issues": issues,
                 "is_centered_horizontal": bool(is_centered_horizontal),
                 "is_centered_vertical": bool(is_centered_vertical),
                 "is_face_size_good": bool(is_face_size_good),
-                "is_face_straight": bool(is_face_straight)
+                "is_face_straight": bool(is_face_straight),
+                "distance_feedback": self._get_distance_feedback(face_coverage, face_width, width)
             }
             
         except Exception as e:
             logger.error(f"Error analyzing position: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return {"is_good": False, "quality": "error", "error": str(e)}
     
     def analyze_stillness(self, image: np.ndarray) -> Dict[str, Any]:
@@ -287,6 +314,21 @@ class CameraAnalyzer:
     def reset_stillness_detection(self):
         """Reset stillness detection for new analysis session"""
         self.previous_landmarks = None
+    
+    def _get_distance_feedback(self, face_coverage: float, face_width: float, image_width: float) -> str:
+        """Generate specific feedback about face distance for skin analysis"""
+        if face_coverage < 30:
+            return "Move much closer - your face is too far away for skin analysis"
+        elif face_coverage < 50:
+            return "Move closer - we need a clearer view of your skin"
+        elif face_coverage < 60:
+            return "Move a bit closer - almost perfect for skin analysis"
+        elif face_coverage > 85:
+            return "Move back slightly - your face is too close"
+        elif face_coverage > 75:
+            return "Perfect distance for skin analysis!"
+        else:
+            return "Good distance - hold this position"
 
 # Global analyzer instance
 analyzer = CameraAnalyzer()

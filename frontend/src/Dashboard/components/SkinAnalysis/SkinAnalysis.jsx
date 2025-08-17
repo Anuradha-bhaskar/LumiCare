@@ -9,8 +9,10 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
   const [cameraChecks, setCameraChecks] = useState({
     lighting: false,
     position: false,
-    stillness: false
+    stillness: false,
+    positionDetails: null
   });
+
   const [analysisResult, setAnalysisResult] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [countdown, setCountdown] = useState(0);
@@ -68,6 +70,14 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
               position: analysis.position.is_good,
               stillness: analysis.stillness.is_good
             });
+            
+            // Store detailed position feedback for display
+            if (analysis.position) {
+              setCameraChecks(prev => ({
+                ...prev,
+                positionDetails: analysis.position
+              }));
+            }
           } else {
             console.error('Camera analysis failed:', response.statusText);
             // Fallback to basic checks if API fails
@@ -198,6 +208,7 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
               <h3>Tips for best results:</h3>
               <ul>
                 <li>Ensure good, natural lighting</li>
+                <li>Position your face close to the camera (60-85% of frame)</li>
                 <li>Look directly at the camera</li>
                 <li>Remove makeup if possible</li>
                 <li>Stay still during capture</li>
@@ -241,7 +252,7 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
               </div>
               <div className={`check-item ${cameraChecks.position ? 'good' : 'bad'}`}>
                 <span className="check-icon"><MapPin size={16} /></span>
-                <span>Position: {cameraChecks.position ? 'Perfect' : 'Center your face'}</span>
+                <span>Position: {cameraChecks.positionDetails?.distance_feedback || cameraChecks.positionDetails?.message || (cameraChecks.position ? 'Perfect' : 'Center your face')}</span>
               </div>
               <div className={`check-item ${cameraChecks.stillness ? 'good' : 'bad'}`}>
                 <span className="check-icon"><Target size={16} /></span>
