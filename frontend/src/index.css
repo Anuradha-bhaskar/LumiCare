@@ -36,6 +36,7 @@ body::-webkit-scrollbar {
 /* Mobile touch improvements */
 input, button, select, textarea {
   -webkit-appearance: none;
+  appearance: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }

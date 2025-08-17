@@ -13,9 +13,6 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "message": "LumiCare API is running"}
 
 init_mongo(app)
 app.include_router(users.router)

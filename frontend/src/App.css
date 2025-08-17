@@ -31,51 +31,11 @@ body {
   width: 100%;
 }
 
-.app-header {
-  background-color: white;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  width: 100%;
-}
-
-.header-content {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 1rem;
-}
-
-.header-content h1 {
-  font-size: 1.5rem;
-  color: var(--text-color);
-}
-
-.header-content nav {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-}
-
-.header-content nav a {
-  color: var(--text-color);
-  text-decoration: none;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-
-.header-content nav a:hover {
-  color: var(--accent-color);
-}
-
 .app-main {
   flex: 1;
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 0;
+  margin: 0;
 }
 
 .auth-container {

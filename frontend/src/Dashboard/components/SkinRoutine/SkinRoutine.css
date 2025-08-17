@@ -1,0 +1,713 @@
+.skin-routine {
+  padding: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.routine-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.routine-header h2 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.routine-header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.tab-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  background: var(--peach-light);
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  background: var(--peach-primary);
+  color: white;
+  box-shadow: 0 2px 4px rgba(255, 183, 158, 0.3);
+}
+
+.generating-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.loading-animation {
+  margin-bottom: 2rem;
+}
+
+.loading-circle {
+  width: 60px;
+  height: 60px;
+  border: 4px solid var(--peach-light);
+  border-top: 4px solid var(--peach-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.generating-state h3 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.generating-state p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.routine-overview {
+  margin-bottom: 2rem;
+}
+
+.overview-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.overview-card h3 {
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.summary-info {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.info-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.concerns-list {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.concern-tag {
+  background: var(--peach-light);
+  color: var(--text-primary);
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.routine-schedules {
+  display: grid;
+  gap: 2rem;
+}
+
+.schedule-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.schedule-section h3 {
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.routine-steps {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.routine-step {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--background-color);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.step-number {
+  width: 40px;
+  height: 40px;
+  background: var(--peach-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.step-content {
+  flex: 1;
+}
+
+.step-content h4 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.step-content p {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.step-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.duration {
+  color: var(--peach-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.ingredients {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ingredient {
+  background: var(--peach-light);
+  color: var(--text-primary);
+  padding: 0.3rem 0.6rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.weekly-treatments {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.treatment-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: var(--background-color);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.treatment-frequency {
+  background: var(--peach-primary);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  height: fit-content;
+  white-space: nowrap;
+}
+
+.treatment-content {
+  flex: 1;
+}
+
+.treatment-content h4 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.treatment-content p {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.routine-tips {
+  background: var(--peach-light);
+  padding: 2rem;
+  border-radius: 16px;
+}
+
+.routine-tips h3 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.routine-tips ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.routine-tips li {
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+  position: relative;
+  line-height: 1.6;
+}
+
+.routine-tips li::before {
+  content: "💡";
+  position: absolute;
+  left: 0;
+}
+
+.generate-diet {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.generate-card h3 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.generate-card p {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.generate-btn {
+  background: var(--peach-primary);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(255, 183, 158, 0.3);
+}
+
+.generate-btn:hover:not(:disabled) {
+  background: #ff6b35;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 183, 158, 0.4);
+}
+
+.generate-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.diet-plan {
+  display: grid;
+  gap: 2rem;
+}
+
+.diet-overview {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.diet-overview h3 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.diet-overview p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.daily-meals {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.meal-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.meal-section h4 {
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.meal-item {
+  padding: 1.5rem;
+  background: var(--background-color);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+}
+
+.meal-item:last-child {
+  margin-bottom: 0;
+}
+
+.meal-item h5 {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.meal-item p {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.nutrients {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.nutrient {
+  background: var(--peach-light);
+  color: var(--text-primary);
+  padding: 0.3rem 0.6rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.additional-info {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.info-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.info-section h4 {
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.supplements {
+  display: grid;
+  gap: 1rem;
+}
+
+.supplement-item {
+  padding: 1rem;
+  background: var(--background-color);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.supplement-name {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.supplement-dosage {
+  color: var(--peach-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.supplement-benefits {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.hydration-info {
+  background: var(--background-color);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.water-goal {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  background: var(--peach-light);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.hydration-tips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.hydration-tips li {
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  padding-left: 1.5rem;
+  position: relative;
+  line-height: 1.5;
+}
+
+.hydration-tips li::before {
+  content: "💧";
+  position: absolute;
+  left: 0;
+}
+
+.avoid-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.avoid-list li {
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  padding-left: 1.5rem;
+  position: relative;
+  line-height: 1.6;
+}
+
+.avoid-list li::before {
+  content: "❌";
+  position: absolute;
+  left: 0;
+}
+
+.superfoods {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.superfood-item {
+  color: var(--text-primary);
+  padding: 1rem;
+  background: var(--peach-light);
+  border-radius: 8px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h2 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.routine-benefits {
+  display: grid;
+  gap: 1rem;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.benefit {
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 1rem;
+  background: var(--peach-light);
+  border-radius: 8px;
+  text-align: left;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .skin-routine {
+    padding: 0 1rem;
+  }
+  
+  .routine-header h2 {
+    font-size: 1.3rem;
+  }
+  
+  .tab-selector {
+    padding: 0.25rem;
+    gap: 0.25rem;
+  }
+  
+  .tab-btn {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .overview-card,
+  .schedule-section,
+  .meal-section,
+  .info-section {
+    padding: 1.5rem;
+  }
+  
+  .routine-step,
+  .treatment-item,
+  .meal-item {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .step-number {
+    align-self: flex-start;
+  }
+  
+  .treatment-frequency {
+    align-self: flex-start;
+    width: fit-content;
+  }
+  
+  .step-details {
+    gap: 0.5rem;
+  }
+  
+  .ingredients,
+  .nutrients,
+  .concerns-list {
+    gap: 0.25rem;
+  }
+  
+  .generating-state,
+  .empty-state,
+  .generate-diet {
+    padding: 2rem 1rem;
+  }
+  
+  .empty-icon {
+    font-size: 3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab-selector {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .tab-btn {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .summary-info {
+    gap: 1rem;
+  }
+  
+  .concerns-list {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .concern-tag {
+    text-align: center;
+  }
+  
+  .daily-meals {
+    gap: 1rem;
+  }
+  
+  .additional-info {
+    gap: 1rem;
+  }
+}
