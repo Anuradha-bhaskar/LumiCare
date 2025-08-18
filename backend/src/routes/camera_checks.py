@@ -51,29 +51,21 @@ class CameraAnalyzer:
         self.movement_threshold = 0.02  # Threshold for detecting movement
         
     def analyze_lighting(self, image: np.ndarray) -> Dict[str, Any]:
-        """Analyze lighting conditions in the image"""
         try:
-            # Convert to grayscale for lighting analysis
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             
-            # Calculate brightness metrics
             mean_brightness = np.mean(gray)
             std_brightness = np.std(gray)
-            
-            # Calculate histogram to detect over/under exposure
+
             hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
             hist_norm = hist.ravel() / hist.sum()
-            
-            # Check for over-exposure (too many bright pixels)
-            over_exposed = bool(np.sum(hist_norm[200:]) > 0.1)
-            
-            # Check for under-exposure (too many dark pixels)
-            under_exposed = bool(np.sum(hist_norm[:50]) > 0.3)
-            
-            # Calculate contrast
+
+            # Looser thresholds (10% pixels extreme → bad)
+            over_exposed = np.sum(hist_norm[230:]) > 0.1
+            under_exposed = np.sum(hist_norm[:25]) > 0.1
+
             contrast = std_brightness / (mean_brightness + 1e-6)
-            
-            # Determine lighting quality
+
             if over_exposed:
                 lighting_quality = "over_exposed"
                 is_good = False
@@ -83,28 +75,26 @@ class CameraAnalyzer:
             elif mean_brightness < 80:
                 lighting_quality = "too_dark"
                 is_good = False
-            elif mean_brightness > 200:
+            elif mean_brightness > 180:
                 lighting_quality = "too_bright"
-                is_good = False
-            elif contrast < 0.3:
-                lighting_quality = "low_contrast"
                 is_good = False
             else:
                 lighting_quality = "good"
                 is_good = True
-            
+
             return {
-                "is_good": bool(is_good),
+                "is_good": is_good,
                 "quality": lighting_quality,
                 "mean_brightness": float(mean_brightness),
                 "contrast": float(contrast),
                 "over_exposed": bool(over_exposed),
                 "under_exposed": bool(under_exposed)
             }
-            
+
         except Exception as e:
             logger.error(f"Error analyzing lighting: {e}")
             return {"is_good": False, "quality": "error", "error": str(e)}
+
     
     def analyze_position(self, image: np.ndarray) -> Dict[str, Any]:
         """Analyze face position and alignment"""
@@ -190,8 +180,6 @@ class CameraAnalyzer:
             # Overall position quality
             is_good = bool(is_centered_horizontal and is_centered_vertical and 
                       is_face_size_good and is_face_not_too_close and is_face_straight)
-            
-            logger.info(f"Position check - Centered H: {is_centered_horizontal}, Centered V: {is_centered_vertical}, Size good: {is_face_size_good}, Not too close: {is_face_not_too_close}, Straight: {is_face_straight}, Final: {is_good}")
             
             if not is_good:
                 issues = []

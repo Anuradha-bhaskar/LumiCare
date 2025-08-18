@@ -338,6 +338,24 @@
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
+/* New: photo grid to show both original and face region */
+.captured-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.captured-photo.face-region img {
+  max-width: 260px;
+}
+
+.photo-caption {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+
 .skin-metrics h3 {
   color: var(--text-dark);
   margin-bottom: 1rem;
@@ -345,42 +363,124 @@
 
 .metrics-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1rem;
 }
 
 .metric-item {
-  display: grid;
-  grid-template-columns: 1fr 2fr auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: rgba(255, 245, 242, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 181, 165, 0.25);
+}
+
+.metric-header {
+  display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem;
-  background: rgba(255, 245, 242, 0.5);
-  border-radius: 10px;
+  justify-content: space-between;
 }
 
 .metric-label {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-dark);
+}
+
+.severity-badge {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.severity-badge.good {
+  background: rgba(39, 174, 96, 0.12);
+  color: var(--success);
+  border-color: rgba(39, 174, 96, 0.35);
+}
+
+.severity-badge.warn {
+  background: rgba(255, 193, 7, 0.12);
+  color: #c39200;
+  border-color: rgba(255, 193, 7, 0.35);
+}
+
+.severity-badge.bad {
+  background: rgba(244, 67, 54, 0.12);
+  color: #e53935;
+  border-color: rgba(244, 67, 54, 0.35);
 }
 
 .metric-bar {
   background: rgba(255, 181, 165, 0.2);
   height: 8px;
-  border-radius: 4px;
+  border-radius: 6px;
   overflow: hidden;
 }
 
 .metric-fill {
   height: 100%;
   background: linear-gradient(135deg, var(--peach-primary), var(--peach-accent));
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  border-radius: 6px;
+  transition: width 0.4s ease;
 }
 
-.metric-value {
+.stat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.75rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 245, 242, 0.9);
+  border: 1px dashed rgba(255, 181, 165, 0.3);
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.stat-value {
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--peach-accent);
-  font-size: 0.9rem;
+}
+
+.metric-description {
+  font-size: 0.85rem;
+  color: var(--text-light);
+}
+
+/* Interactive Metric Styles */
+.metric-item.interactive {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.metric-item.interactive:hover {
+  background: rgba(255, 181, 165, 0.1);
+  border-color: var(--peach-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 71, 0.2);
+}
+
+.metric-item.interactive.active {
+  background: rgba(255, 107, 71, 0.15);
+  border-color: var(--peach-accent);
+  box-shadow: 0 6px 20px rgba(255, 107, 71, 0.3);
 }
 
 .results-sidebar {
@@ -445,6 +545,37 @@
   left: 0;
 }
 
+/* Priority */
+.priority-actions-card {
+  background: rgba(255, 245, 242, 0.8);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(255, 181, 165, 0.3);
+}
+
+.priority-list {
+  list-style: none;
+  padding: 0;
+}
+
+.priority-list li {
+  padding: 0.5rem 0;
+  position: relative;
+  padding-left: 1.5rem;
+  border-bottom: 1px solid rgba(255, 181, 165, 0.1);
+}
+
+.priority-list li::before {
+  content: '🎯';
+  position: absolute;
+  left: 0;
+}
+
+.priority-list li:last-child {
+  border-bottom: none;
+}
+
 .results-actions {
   display: flex;
   justify-content: center;
@@ -506,10 +637,8 @@
     align-items: center;
   }
   
-  .metric-item {
+  .metrics-grid {
     grid-template-columns: 1fr;
-    gap: 0.5rem;
-    text-align: center;
   }
 }
 

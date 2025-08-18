@@ -1,49 +1,64 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, Search, BarChart3, Lightbulb, MapPin, Target } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
 import './SkinAnalysis.css';
 
-const SkinAnalysis = ({ onAnalysisComplete }) => {
+const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
   const webcamRef = useRef(null);
+  const { user } = useUser();
   const [step, setStep] = useState('ready'); // ready, camera, analyzing, results
   const [cameraChecks, setCameraChecks] = useState({
     lighting: false,
     position: false,
     stillness: false,
-    positionDetails: null
+    positionDetails: null,
+    lightingDetails: null // Add this to store lighting details
   });
 
   const [analysisResult, setAnalysisResult] = useState(null);
   const [capturedImage, setCapturedImage] = useState(null);
   const [countdown, setCountdown] = useState(0);
+  const [highlightedMetric, setHighlightedMetric] = useState(null);
 
-  // Mock AI analysis function - replace with actual AI service
+  // Real AI analysis function using MediaPipe, OpenCV, and Gemini
   const analyzeImage = async (imageData) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // Log imageData for future AI integration
-    console.log('Image data captured for analysis:', imageData);
-    
-    // Mock analysis results
-    return {
-      skinType: 'Combination',
-      concerns: ['Mild acne', 'Slight dryness', 'Minor dark circles'],
-      skinHealth: 75,
-      recommendations: [
-        'Use a gentle cleanser twice daily',
-        'Apply moisturizer with hyaluronic acid',
-        'Use sunscreen with SPF 30+',
-        'Consider vitamin C serum for brightness'
-      ],
-      metrics: {
-        hydration: 68,
-        clarity: 72,
-        texture: 70,
-        poreSize: 65
+    try {
+      console.log('Starting real skin analysis...');
+      const effectiveUserId = clerkUserId || user?.id || null;
+      console.log('Sending clerk_user_id:', effectiveUserId);
+      
+      // Call the backend skin analysis API
+      const response = await fetch('http://localhost:8000/api/skin/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image_data: imageData, clerk_user_id: effectiveUserId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.statusText}`);
       }
-    };
+
+      const analysisResult = await response.json();
+      console.log('Skin analysis completed:', analysisResult);
+      
+      return {
+        skinType: analysisResult?.comprehensive?.skinType,
+        concerns: analysisResult?.comprehensive?.concerns,
+        skinHealth: analysisResult?.comprehensive?.skinHealth,
+        recommendations: analysisResult?.comprehensive?.recommendations,
+        metrics: analysisResult?.metrics || {},
+        faceRegion: analysisResult?.face_region,
+        priorityActions: analysisResult?.comprehensive?.priorityActions
+      };
+    } catch (error) {
+      console.error('Skin analysis failed:', error);
+      throw error;
+    }
   };
+
 
   // Real camera quality checks using MediaPipe and OpenCV
   useEffect(() => {
@@ -68,23 +83,19 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
             setCameraChecks({
               lighting: analysis.lighting.is_good,
               position: analysis.position.is_good,
-              stillness: analysis.stillness.is_good
+              stillness: analysis.stillness.is_good,
+              lightingDetails: analysis.lighting, // Store lighting details
+              positionDetails: analysis.position
             });
-            
-            // Store detailed position feedback for display
-            if (analysis.position) {
-              setCameraChecks(prev => ({
-                ...prev,
-                positionDetails: analysis.position
-              }));
-            }
           } else {
             console.error('Camera analysis failed:', response.statusText);
             // Fallback to basic checks if API fails
             setCameraChecks({
               lighting: true,
               position: true,
-              stillness: true
+              stillness: true,
+              lightingDetails: { quality: 'good' },
+              positionDetails: null
             });
           }
         } catch (error) {
@@ -93,7 +104,9 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
           setCameraChecks({
             lighting: true,
             position: true,
-            stillness: true
+            stillness: true,
+            lightingDetails: { quality: 'good' },
+            positionDetails: null
           });
         }
       }, 1000);
@@ -177,7 +190,50 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
     setCapturedImage(null);
     setAnalysisResult(null);
     setCountdown(0);
+    setHighlightedMetric(null);
   };
+
+  const highlightMetric = (metricType) => {
+    setHighlightedMetric(metricType);
+    // Here you could add logic to highlight specific areas on the image
+    console.log(`Highlighting ${metricType} on image`);
+  };
+
+  // Helpers for results view
+  const calculatePercent = (score) => {
+    if (score == null) return 0;
+    // If score already looks like 0-1, convert to percentage
+    if (score <= 1) return Math.round(score * 100);
+    // If score in 0-100 range, clamp
+    return Math.round(Math.min(100, Math.max(0, score)));
+  };
+
+  const getSeverityBadgeClass = (severity) => {
+    if (!severity) return 'severity-badge warn';
+    const s = String(severity).toLowerCase();
+    if (['none', 'clear', 'fine', 'even', 'normal', 'adequately hydrated', 'well hydrated'].some(k => s.includes(k))) {
+      return 'severity-badge good';
+    }
+    if (['mild'].some(k => s.includes(k))) {
+      return 'severity-badge warn';
+    }
+    if (['moderate-severe', 'pronounced', 'very oily', 'severely dehydrated', 'severe'].some(k => s.includes(k))) {
+      return 'severity-badge bad';
+    }
+    if (['moderate', 'oily', 'dry', 'enlarged', 'very enlarged', 'dehydrated', 'sensitive'].some(k => s.includes(k))) {
+      return 'severity-badge warn';
+    }
+    return 'severity-badge warn';
+  };
+
+  const StatItem = ({ label, value, isPercent = false, digits = 2 }) => (
+    value === null || value === undefined || (typeof value === 'number' && Number.isNaN(value)) ? null : (
+      <li className="stat-item">
+        <span className="stat-label">{label}</span>
+        <span className="stat-value">{isPercent ? `${Math.round(value * 100)}%` : (typeof value === 'number' ? value.toFixed(digits) : value)}</span>
+      </li>
+    )
+  );
 
   return (
     <div className="skin-analysis">
@@ -309,56 +365,189 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
 
           <div className="results-content">
             <div className="results-main">
-              <div className="captured-photo">
-                <img src={capturedImage} alt="Captured" />
+              <div className="captured-photo-grid">
+                <div className="captured-photo">
+                  <img src={capturedImage} alt="Analyzed Face" />
+                </div>
               </div>
               
               <div className="skin-metrics">
-                <h3>Skin Health Metrics</h3>
+                <h3>Skin Analysis Metrics</h3>
                 <div className="metrics-grid">
-                  <div className="metric-item">
-                    <span className="metric-label">Hydration</span>
-                    <div className="metric-bar">
-                      <div 
-                        className="metric-fill" 
-                        style={{ width: `${analysisResult.metrics.hydration}%` }}
-                      ></div>
+                  {/* Acne */}
+                  {analysisResult.metrics?.acne && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'acne' ? 'active' : ''}`} onClick={() => highlightMetric('acne')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Acne</span>
+                      {analysisResult.metrics.acne?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.acne?.severity)}>{analysisResult.metrics.acne?.severity}</span>
+                      )}
                     </div>
-                    <span className="metric-value">{analysisResult.metrics.hydration}%</span>
+                    {typeof analysisResult.metrics.acne?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div
+                          className="metric-fill"
+                          style={{ width: `${calculatePercent(analysisResult.metrics.acne?.score)}%` }}
+                        ></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="Spots" value={analysisResult.metrics.acne?.count} digits={0} />
+                      <StatItem label="Avg Spot Size" value={analysisResult.metrics.acne?.avg_size} />
+                    </ul>
                   </div>
+                  )}
                   
-                  <div className="metric-item">
-                    <span className="metric-label">Clarity</span>
-                    <div className="metric-bar">
-                      <div 
-                        className="metric-fill" 
-                        style={{ width: `${analysisResult.metrics.clarity}%` }}
-                      ></div>
+                  {/* Oiliness */}
+                  {analysisResult.metrics?.oiliness && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'oiliness' ? 'active' : ''}`} onClick={() => highlightMetric('oiliness')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Oiliness</span>
+                      {analysisResult.metrics.oiliness?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.oiliness?.severity)}>{analysisResult.metrics.oiliness?.severity}</span>
+                      )}
                     </div>
-                    <span className="metric-value">{analysisResult.metrics.clarity}%</span>
+                    {typeof analysisResult.metrics.oiliness?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div className="metric-fill" style={{ width: `${calculatePercent(analysisResult.metrics.oiliness?.score)}%` }}></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="T-zone Brightness" value={analysisResult.metrics.oiliness?.t_zone_brightness} />
+                      <StatItem label="Texture Variance" value={analysisResult.metrics.oiliness?.texture_variance} />
+                    </ul>
                   </div>
-                  
-                  <div className="metric-item">
-                    <span className="metric-label">Texture</span>
-                    <div className="metric-bar">
-                      <div 
-                        className="metric-fill" 
-                        style={{ width: `${analysisResult.metrics.texture}%` }}
-                      ></div>
+                  )}
+
+                  {/* Pigmentation */}
+                  {analysisResult.metrics?.pigmentation && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'pigmentation' ? 'active' : ''}`} onClick={() => highlightMetric('pigmentation')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Pigmentation</span>
+                      {analysisResult.metrics.pigmentation?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.pigmentation?.severity)}>{analysisResult.metrics.pigmentation?.severity}</span>
+                      )}
                     </div>
-                    <span className="metric-value">{analysisResult.metrics.texture}%</span>
+                    {typeof analysisResult.metrics.pigmentation?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div className="metric-fill" style={{ width: `${calculatePercent(analysisResult.metrics.pigmentation?.score)}%` }}></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="Color Variation" value={analysisResult.metrics.pigmentation?.color_variation} />
+                      <StatItem label="Dark Spots Area" value={analysisResult.metrics.pigmentation?.dark_spots_percentage} isPercent />
+                    </ul>
                   </div>
-                  
-                  <div className="metric-item">
-                    <span className="metric-label">Pore Size</span>
-                    <div className="metric-bar">
-                      <div 
-                        className="metric-fill" 
-                        style={{ width: `${analysisResult.metrics.poreSize}%` }}
-                      ></div>
+                  )}
+
+                  {/* Wrinkles */}
+                  {analysisResult.metrics?.wrinkles && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'wrinkles' ? 'active' : ''}`} onClick={() => highlightMetric('wrinkles')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Wrinkles</span>
+                      {analysisResult.metrics.wrinkles?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.wrinkles?.severity)}>{analysisResult.metrics.wrinkles?.severity}</span>
+                      )}
                     </div>
-                    <span className="metric-value">{analysisResult.metrics.poreSize}%</span>
+                    {typeof analysisResult.metrics.wrinkles?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div className="metric-fill" style={{ width: `${calculatePercent(analysisResult.metrics.wrinkles?.score)}%` }}></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="Density" value={analysisResult.metrics.wrinkles?.density} isPercent />
+                      <StatItem label="Line Count" value={analysisResult.metrics.wrinkles?.line_count} digits={0} />
+                    </ul>
                   </div>
+                  )}
+
+                  {/* Pores */}
+                  {analysisResult.metrics?.pores && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'pores' ? 'active' : ''}`} onClick={() => highlightMetric('pores')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Pores</span>
+                      {analysisResult.metrics.pores?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.pores?.severity)}>{analysisResult.metrics.pores?.severity}</span>
+                      )}
+                    </div>
+                    {typeof analysisResult.metrics.pores?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div className="metric-fill" style={{ width: `${calculatePercent(analysisResult.metrics.pores?.score)}%` }}></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="Count" value={analysisResult.metrics.pores?.count} digits={0} />
+                      <StatItem label="Avg Size" value={analysisResult.metrics.pores?.avg_size} />
+                      <StatItem label="Density" value={analysisResult.metrics.pores?.density} />
+                    </ul>
+                  </div>
+                  )}
+
+                  {/* Hydration */}
+                  {analysisResult.metrics?.hydration && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'hydration' ? 'active' : ''}`} onClick={() => highlightMetric('hydration')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Hydration</span>
+                      {analysisResult.metrics.hydration?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.hydration?.severity)}>{analysisResult.metrics.hydration?.severity}</span>
+                      )}
+                    </div>
+                    {typeof analysisResult.metrics.hydration?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div className="metric-fill" style={{ width: `${calculatePercent(analysisResult.metrics.hydration?.score)}%` }}></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="Smoothness" value={analysisResult.metrics.hydration?.smoothness} isPercent />
+                      <StatItem label="Texture Uniformity" value={analysisResult.metrics.hydration?.texture_uniformity} isPercent />
+                    </ul>
+                  </div>
+                  )}
+
+                  {/* Dark Circles */}
+                  {analysisResult.metrics?.darkCircles && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'darkCircles' ? 'active' : ''}`} onClick={() => highlightMetric('darkCircles')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Dark Circles</span>
+                      {analysisResult.metrics.darkCircles?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.darkCircles?.severity)}>{analysisResult.metrics.darkCircles?.severity}</span>
+                      )}
+                    </div>
+                    {typeof analysisResult.metrics.darkCircles?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div className="metric-fill" style={{ width: `${calculatePercent(analysisResult.metrics.darkCircles?.score)}%` }}></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="Darkness" value={analysisResult.metrics.darkCircles?.darkness_score} isPercent />
+                      <StatItem label="Color Score" value={analysisResult.metrics.darkCircles?.color_score} isPercent />
+                      <StatItem label="Left Eye" value={analysisResult.metrics.darkCircles?.left_eye} isPercent />
+                      <StatItem label="Right Eye" value={analysisResult.metrics.darkCircles?.right_eye} isPercent />
+                    </ul>
+                  </div>
+                  )}
+
+                  {/* Redness */}
+                  {analysisResult.metrics?.redness && (
+                  <div className={`metric-item interactive ${highlightedMetric === 'redness' ? 'active' : ''}`} onClick={() => highlightMetric('redness')}>
+                    <div className="metric-header">
+                      <span className="metric-label">Redness</span>
+                      {analysisResult.metrics.redness?.severity && (
+                        <span className={getSeverityBadgeClass(analysisResult.metrics.redness?.severity)}>{analysisResult.metrics.redness?.severity}</span>
+                      )}
+                    </div>
+                    {typeof analysisResult.metrics.redness?.score === 'number' && (
+                      <div className="metric-bar">
+                        <div className="metric-fill" style={{ width: `${calculatePercent(analysisResult.metrics.redness?.score)}%` }}></div>
+                      </div>
+                    )}
+                    <ul className="stat-list">
+                      <StatItem label="Area" value={analysisResult.metrics.redness?.percentage} isPercent />
+                      <StatItem label="Red Intensity" value={analysisResult.metrics.redness?.red_intensity} />
+                      <StatItem label="Red Dominance" value={analysisResult.metrics.redness?.red_dominance} />
+                    </ul>
+                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -366,29 +555,48 @@ const SkinAnalysis = ({ onAnalysisComplete }) => {
             <div className="results-sidebar">
               <div className="skin-type-card">
                 <h3>Skin Type</h3>
-                <div className="skin-type">{analysisResult.skinType}</div>
-                <div className="skin-health">
-                  <span>Overall Health: </span>
-                  <span className="health-score">{analysisResult.skinHealth}%</span>
-                </div>
+                {analysisResult.skinType && (
+                  <div className="skin-type">{analysisResult.skinType}</div>
+                )}
+                {typeof analysisResult.skinHealth === 'number' && (
+                  <div className="skin-health">
+                    <span>Overall Health: </span>
+                    <span className="health-score">{analysisResult.skinHealth}%</span>
+                  </div>
+                )}
               </div>
 
               <div className="concerns-card">
-                <h3>Areas of Concern</h3>
-                <ul className="concerns-list">
-                  {analysisResult.concerns.map((concern, index) => (
-                    <li key={index}>{concern}</li>
-                  ))}
-                </ul>
+                <h3>Primary Concerns</h3>
+                {Array.isArray(analysisResult.concerns) && analysisResult.concerns.length > 0 && (
+                  <ul className="concerns-list">
+                    {analysisResult.concerns.map((concern, index) => (
+                      <li key={index}>{concern}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="priority-actions-card">
+                <h3>Priority Actions</h3>
+                {Array.isArray(analysisResult.priorityActions) && analysisResult.priorityActions.length > 0 && (
+                  <ul className="priority-list">
+                    {analysisResult.priorityActions.map((action, index) => (
+                      <li key={index}>{action}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="recommendations-card">
                 <h3>Recommendations</h3>
-                <ul className="recommendations-list">
-                  {analysisResult.recommendations.map((rec, index) => (
-                    <li key={index}>{rec}</li>
-                  ))}
-                </ul>
+                {Array.isArray(analysisResult.recommendations) && analysisResult.recommendations.length > 0 && (
+                  <ul className="recommendations-list">
+                    {analysisResult.recommendations.map((rec, index) => (
+                      <li key={index}>{rec}</li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>

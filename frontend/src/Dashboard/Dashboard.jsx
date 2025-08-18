@@ -24,11 +24,23 @@ const Dashboard = () => {
         setUserProfile(user.unsafeMetadata);
       }
 
-      // Load analysis history from localStorage
-      const history = localStorage.getItem(`skinAnalysis_${user.id}`);
-      if (history) {
-        setAnalysisHistory(JSON.parse(history));
-      }
+      // Fetch analysis history from backend DB
+      (async () => {
+        try {
+          const res = await fetch(`http://localhost:8000/api/skin/history/${user.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            setAnalysisHistory(data);
+          } else {
+            // Fallback to localStorage if server history unavailable
+            const history = localStorage.getItem(`skinAnalysis_${user.id}`);
+            if (history) setAnalysisHistory(JSON.parse(history));
+          }
+        } catch (e) {
+          const history = localStorage.getItem(`skinAnalysis_${user.id}`);
+          if (history) setAnalysisHistory(JSON.parse(history));
+        }
+      })();
     }
   }, [user, isLoaded]);
 
@@ -47,18 +59,27 @@ const Dashboard = () => {
     }
   };
 
-  const saveAnalysisResult = (analysisData) => {
+  const saveAnalysisResult = async (analysisData) => {
     const newAnalysis = {
       id: Date.now(),
       timestamp: new Date().toISOString(),
       ...analysisData
     };
     
+    // Optimistic update UI
     const updatedHistory = [newAnalysis, ...analysisHistory];
     setAnalysisHistory(updatedHistory);
-    
-    // Save to localStorage
     localStorage.setItem(`skinAnalysis_${user.id}`, JSON.stringify(updatedHistory));
+
+    // Refresh from backend to pull canonical saved record ordering
+    try {
+      const res = await fetch(`http://localhost:8000/api/skin/history/${user.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAnalysisHistory(data);
+        localStorage.setItem(`skinAnalysis_${user.id}`, JSON.stringify(data));
+      }
+    } catch {}
   };
 
   if (!isLoaded) {
@@ -108,6 +129,7 @@ const Dashboard = () => {
           {activeTab === 'analysis' && (
             <SkinAnalysis 
               onAnalysisComplete={saveAnalysisResult}
+              clerkUserId={user?.id}
             />
           )}
           
