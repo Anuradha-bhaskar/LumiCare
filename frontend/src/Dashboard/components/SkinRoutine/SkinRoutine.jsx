@@ -1,219 +1,148 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Droplets, Calendar, Apple, Lightbulb, Sunrise, Moon, CalendarDays, Sun, Sunset, Pill, DropletIcon, X, Star } from 'lucide-react';
+import { Sparkles, Droplets, Calendar, Apple, Lightbulb, Sunrise, Moon, CalendarDays, Sun, Sunset, Pill, DropletIcon, X, Star, Info } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
 import './SkinRoutine.css';
 
 const SkinRoutine = ({ latestAnalysis }) => {
+  const { user } = useUser();
   const [activeTab, setActiveTab] = useState('routine');
   const [isGenerating, setIsGenerating] = useState(false);
   const [routine, setRoutine] = useState(null);
   const [dietPlan, setDietPlan] = useState(null);
+  const [selectedIngredient, setSelectedIngredient] = useState(null);
 
-  const generateRoutine = useCallback(async () => {
-    if (!latestAnalysis) return;
-    
-    setIsGenerating(true);
-    
-    // Simulate API call to Gemini - replace with actual implementation
-    setTimeout(() => {
-      const mockRoutine = {
-        skinType: latestAnalysis.skinType,
-        mainConcerns: latestAnalysis.concerns,
-        morning: [
-          {
-            step: 1,
-            product: "Gentle Cleanser",
-            description: "Use a mild, pH-balanced cleanser to remove overnight buildup",
-            duration: "1-2 minutes",
-            ingredients: ["Ceramides", "Hyaluronic Acid"]
-          },
-          {
-            step: 2,
-            product: "Vitamin C Serum",
-            description: "Apply antioxidant protection for environmental damage",
-            duration: "Let absorb for 5 minutes",
-            ingredients: ["L-Ascorbic Acid", "Vitamin E"]
-          },
-          {
-            step: 3,
-            product: "Hydrating Moisturizer",
-            description: "Lock in moisture with a lightweight, non-comedogenic formula",
-            duration: "Apply generously",
-            ingredients: ["Niacinamide", "Peptides"]
-          },
-          {
-            step: 4,
-            product: "Broad Spectrum SPF 30+",
-            description: "Essential sun protection - reapply every 2 hours",
-            duration: "Never skip!",
-            ingredients: ["Zinc Oxide", "Titanium Dioxide"]
-          }
-        ],
-        evening: [
-          {
-            step: 1,
-            product: "Oil Cleanser",
-            description: "Remove makeup and sunscreen thoroughly",
-            duration: "Massage for 1 minute",
-            ingredients: ["Jojoba Oil", "Emulsifiers"]
-          },
-          {
-            step: 2,
-            product: "Gentle Cleanser",
-            description: "Second cleanse to remove remaining impurities",
-            duration: "1-2 minutes",
-            ingredients: ["Ceramides", "Hyaluronic Acid"]
-          },
-          {
-            step: 3,
-            product: "Treatment Serum",
-            description: "Target specific concerns with active ingredients",
-            duration: "Wait 10 minutes before next step",
-            ingredients: ["Retinol", "Peptides"]
-          },
-          {
-            step: 4,
-            product: "Night Moisturizer",
-            description: "Rich, repairing formula for overnight recovery",
-            duration: "Apply as final step",
-            ingredients: ["Ceramides", "Squalane"]
-          }
-        ],
-        weekly: [
-          {
-            frequency: "2-3 times per week",
-            product: "Gentle Exfoliant",
-            description: "Remove dead skin cells for better product absorption",
-            ingredients: ["BHA", "AHA"]
-          },
-          {
-            frequency: "Once per week",
-            product: "Hydrating Face Mask",
-            description: "Deep moisture treatment for plump, healthy skin",
-            ingredients: ["Hyaluronic Acid", "Aloe Vera"]
-          }
-        ],
-        tips: [
-          "Always patch test new products",
-          "Introduce new products gradually",
-          "Consistency is key - give products 4-6 weeks to show results",
-          "Listen to your skin and adjust routine as needed"
-        ]
-      };
-      
-      setRoutine(mockRoutine);
+  const fetchRoutine = useCallback(async () => {
+    try {
+      setIsGenerating(true);
+      const userId = user?.id || localStorage.getItem('last_clerk_user_id') || null;
+      if (user?.id) localStorage.setItem('last_clerk_user_id', user.id);
+      // Try cached routine first
+      const cachedRes = await fetch(`http://localhost:8000/api/skin/routine/${userId}`);
+      if (cachedRes.ok) {
+        const cached = await cachedRes.json();
+        if (cached && cached.routine) {
+          const data = cached.routine;
+          setRoutine({
+            skinType: data.skinType,
+            mainConcerns: latestAnalysis?.concerns || [],
+            morning: data?.routine?.morning || [],
+            evening: data?.routine?.evening || [],
+            weekly: data?.routine?.weekly || [],
+            ingredients: data?.ingredients || []
+          });
+          return;
+        }
+      }
+      // If not cached, request generation
+      const response = await fetch('http://localhost:8000/api/skin/routine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clerk_user_id: userId })
+      });
+      if (!response.ok) throw new Error('Failed to generate routine');
+      const data = await response.json();
+      setRoutine({
+        skinType: data.skinType,
+        mainConcerns: latestAnalysis?.concerns || [],
+        morning: data?.routine?.morning || [],
+        evening: data?.routine?.evening || [],
+        weekly: data?.routine?.weekly || [],
+        ingredients: data?.ingredients || []
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
       setIsGenerating(false);
-    }, 2000);
-  }, [latestAnalysis]);
+    }
+  }, [latestAnalysis, user]);
+
+  const fetchDiet = useCallback(async (forceNew = false) => {
+    try {
+      setIsGenerating(true);
+      const userId = user?.id || localStorage.getItem('last_clerk_user_id') || null;
+      if (user?.id) localStorage.setItem('last_clerk_user_id', user.id);
+      if (!forceNew) {
+        const cached = await fetch(`http://localhost:8000/api/skin/diet/${userId}`);
+        if (cached.ok) {
+          const payload = await cached.json();
+          if (payload && payload.diet) {
+            setDietPlan(payload.diet);
+            return;
+          }
+        }
+      }
+      const gen = await fetch('http://localhost:8000/api/skin/diet', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clerk_user_id: userId })
+      });
+      if (!gen.ok) throw new Error('Failed to generate diet');
+      const data = await gen.json();
+      setDietPlan(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [user]);
 
   const generateDietPlan = async () => {
-    if (!latestAnalysis) return;
-    
-    setIsGenerating(true);
-    
-    // Simulate API call to Gemini - replace with actual implementation
-    setTimeout(() => {
-      const mockDietPlan = {
-        goals: latestAnalysis.concerns,
-        dailyPlan: {
-          breakfast: [
-            {
-              food: "Greek Yogurt with Berries",
-              benefits: "Probiotics for gut health, antioxidants for skin protection",
-              nutrients: ["Vitamin C", "Protein", "Probiotics"]
-            },
-            {
-              food: "Avocado Toast on Whole Grain",
-              benefits: "Healthy fats for skin barrier function",
-              nutrients: ["Omega-3", "Vitamin E", "Fiber"]
-            }
-          ],
-          lunch: [
-            {
-              food: "Salmon Salad with Spinach",
-              benefits: "Omega-3 fatty acids reduce inflammation",
-              nutrients: ["Omega-3", "Iron", "Vitamin A"]
-            },
-            {
-              food: "Sweet Potato",
-              benefits: "Beta-carotene converts to vitamin A for skin repair",
-              nutrients: ["Beta-carotene", "Vitamin C", "Fiber"]
-            }
-          ],
-          dinner: [
-            {
-              food: "Grilled Chicken with Broccoli",
-              benefits: "Lean protein for collagen production",
-              nutrients: ["Protein", "Vitamin C", "Folate"]
-            },
-            {
-              food: "Quinoa",
-              benefits: "Complete protein and B vitamins for skin health",
-              nutrients: ["Protein", "B Vitamins", "Magnesium"]
-            }
-          ],
-          snacks: [
-            {
-              food: "Handful of Walnuts",
-              benefits: "Omega-3 fatty acids for skin inflammation",
-              nutrients: ["Omega-3", "Vitamin E", "Magnesium"]
-            },
-            {
-              food: "Green Tea",
-              benefits: "Antioxidants fight free radical damage",
-              nutrients: ["Polyphenols", "EGCG", "Antioxidants"]
-            }
-          ]
-        },
-        supplements: [
-          {
-            name: "Omega-3 Fish Oil",
-            dosage: "1000mg daily",
-            benefits: "Reduces inflammation and supports skin barrier"
-          },
-          {
-            name: "Vitamin D3",
-            dosage: "2000 IU daily",
-            benefits: "Supports skin cell growth and repair"
-          },
-          {
-            name: "Zinc",
-            dosage: "15mg daily",
-            benefits: "Helps with acne and wound healing"
-          }
-        ],
-        hydration: {
-          waterGoal: "8-10 glasses daily",
-          tips: [
-            "Start each day with a glass of water",
-            "Add lemon for vitamin C boost",
-            "Herbal teas count toward daily intake",
-            "Monitor urine color - pale yellow is ideal"
-          ]
-        },
-        avoid: [
-          "Excessive dairy (may trigger inflammation)",
-          "High glycemic foods (white bread, sugary snacks)",
-          "Processed foods high in trans fats",
-          "Excessive alcohol consumption"
-        ],
-        skinFoods: [
-          "Tomatoes - lycopene for sun protection",
-          "Dark leafy greens - vitamins A, C, E",
-          "Citrus fruits - vitamin C for collagen",
-          "Nuts and seeds - healthy fats and vitamin E"
-        ]
-      };
-      
-      setDietPlan(mockDietPlan);
-      setIsGenerating(false);
-    }, 2000);
+    await fetchDiet(true);
   };
 
   useEffect(() => {
+    // Capture recent Clerk user id for backend routine generation
+    const tryStoreClerk = () => {
+      const possible = user?.id || window?.Clerk?.user?.id || null;
+      if (possible) localStorage.setItem('last_clerk_user_id', possible);
+    };
+    tryStoreClerk();
+  }, [user]);
+
+  useEffect(() => {
     if (latestAnalysis && !routine) {
-      generateRoutine();
+      fetchRoutine();
     }
-  }, [latestAnalysis, routine, generateRoutine]);
+  }, [latestAnalysis, routine, fetchRoutine]);
+
+  useEffect(() => {
+    if (activeTab === 'diet' && !dietPlan) {
+      fetchDiet(false);
+    }
+  }, [activeTab, dietPlan, fetchDiet]);
+
+  const IngredientDetails = ({ ingredient, onClose }) => {
+    if (!ingredient) return null;
+    return (
+      <div className="ingredient-modal">
+        <div className="ingredient-card">
+          <button className="close-btn" onClick={onClose}><X size={18} /></button>
+          <h3>{ingredient.name}</h3>
+          {ingredient.benefits && <p className="benefits">{ingredient.benefits}</p>}
+          {Array.isArray(ingredient.pros) && ingredient.pros.length > 0 && (
+            <div className="pros">
+              <h4>Pros</h4>
+              <ul>
+                {ingredient.pros.map((p, i) => <li key={i}>{p}</li>)}
+              </ul>
+            </div>
+          )}
+          {ingredient.usage && (
+            <div className="usage">
+              <h4>How to use</h4>
+              <p>{ingredient.usage}</p>
+            </div>
+          )}
+          {Array.isArray(ingredient.warnings) && ingredient.warnings.length > 0 && (
+            <div className="warnings">
+              <h4>Warnings</h4>
+              <ul>
+                {ingredient.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   if (!latestAnalysis) {
     return (
@@ -238,6 +167,11 @@ const SkinRoutine = ({ latestAnalysis }) => {
       <div className="routine-header">
         <h2><Sparkles size={24} className="inline-icon" /> Your Personalized Care Plan</h2>
         <p>AI-powered recommendations based on your latest skin analysis</p>
+        <div>
+          <button className="generate-btn" onClick={fetchRoutine} disabled={isGenerating}>
+            {isGenerating ? 'Generating…' : 'Generate New Routine'}
+          </button>
+        </div>
       </div>
 
       <div className="tab-selector">
@@ -275,14 +209,16 @@ const SkinRoutine = ({ latestAnalysis }) => {
                       <span className="info-label">Skin Type:</span>
                       <span className="info-value">{routine.skinType}</span>
                     </div>
-                    <div className="info-item">
-                      <span className="info-label">Main Concerns:</span>
-                      <div className="concerns-list">
-                        {routine.mainConcerns.map((concern, index) => (
-                          <span key={index} className="concern-tag">{concern}</span>
-                        ))}
+                    {Array.isArray(routine.mainConcerns) && routine.mainConcerns.length > 0 && (
+                      <div className="info-item">
+                        <span className="info-label">Main Concerns:</span>
+                        <div className="concerns-list">
+                          {routine.mainConcerns.map((concern, index) => (
+                            <span key={index} className="concern-tag">{concern}</span>
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -301,7 +237,9 @@ const SkinRoutine = ({ latestAnalysis }) => {
                             <span className="duration">{step.duration}</span>
                             <div className="ingredients">
                               {step.ingredients.map((ingredient, index) => (
-                                <span key={index} className="ingredient">{ingredient}</span>
+                                <button key={index} className="ingredient link" onClick={() => setSelectedIngredient(routine.ingredients?.find(i => i.name.toLowerCase() === ingredient.toLowerCase()) || { name: ingredient })}>
+                                  <Info size={14} /> {ingredient}
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -324,7 +262,9 @@ const SkinRoutine = ({ latestAnalysis }) => {
                             <span className="duration">{step.duration}</span>
                             <div className="ingredients">
                               {step.ingredients.map((ingredient, index) => (
-                                <span key={index} className="ingredient">{ingredient}</span>
+                                <button key={index} className="ingredient link" onClick={() => setSelectedIngredient(routine.ingredients?.find(i => i.name.toLowerCase() === ingredient.toLowerCase()) || { name: ingredient })}>
+                                  <Info size={14} /> {ingredient}
+                                </button>
                               ))}
                             </div>
                           </div>
@@ -345,7 +285,9 @@ const SkinRoutine = ({ latestAnalysis }) => {
                           <p>{treatment.description}</p>
                           <div className="ingredients">
                             {treatment.ingredients.map((ingredient, idx) => (
-                              <span key={idx} className="ingredient">{ingredient}</span>
+                              <button key={idx} className="ingredient link" onClick={() => setSelectedIngredient(routine.ingredients?.find(i => i.name.toLowerCase() === ingredient.toLowerCase()) || { name: ingredient })}>
+                                <Info size={14} /> {ingredient}
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -357,12 +299,14 @@ const SkinRoutine = ({ latestAnalysis }) => {
                 <div className="routine-tips">
                   <h3><Lightbulb size={20} className="inline-icon" /> Pro Tips</h3>
                   <ul>
-                    {routine.tips.map((tip, index) => (
-                      <li key={index}>{tip}</li>
-                    ))}
+                    <li>Always patch test new products</li>
+                    <li>Introduce actives gradually and use sunscreen daily</li>
+                    <li>Adjust frequency if irritation occurs</li>
                   </ul>
                 </div>
               </div>
+
+              <IngredientDetails ingredient={selectedIngredient} onClose={() => setSelectedIngredient(null)} />
             </>
           )}
         </div>
@@ -388,18 +332,20 @@ const SkinRoutine = ({ latestAnalysis }) => {
             <div className="diet-plan">
               <div className="diet-overview">
                 <h3>Your Personalized Nutrition Plan</h3>
-                <p>Targeted nutrition to address: {dietPlan.goals.join(', ')}</p>
+                {Array.isArray(dietPlan.goals) && dietPlan.goals.length > 0 && (
+                  <p>Targeted nutrition to address: {dietPlan.goals.join(', ')}</p>
+                )}
               </div>
 
               <div className="daily-meals">
                 <div className="meal-section">
                   <h4><Sunrise size={18} className="inline-icon" /> Breakfast</h4>
-                  {dietPlan.dailyPlan.breakfast.map((meal, index) => (
+                  {(dietPlan.dailyPlan?.breakfast || []).map((meal, index) => (
                     <div key={index} className="meal-item">
                       <h5>{meal.food}</h5>
                       <p>{meal.benefits}</p>
                       <div className="nutrients">
-                        {meal.nutrients.map((nutrient, idx) => (
+                        {(meal.nutrients || []).map((nutrient, idx) => (
                           <span key={idx} className="nutrient">{nutrient}</span>
                         ))}
                       </div>
@@ -409,12 +355,12 @@ const SkinRoutine = ({ latestAnalysis }) => {
 
                 <div className="meal-section">
                   <h4><Sun size={18} className="inline-icon" /> Lunch</h4>
-                  {dietPlan.dailyPlan.lunch.map((meal, index) => (
+                  {(dietPlan.dailyPlan?.lunch || []).map((meal, index) => (
                     <div key={index} className="meal-item">
                       <h5>{meal.food}</h5>
                       <p>{meal.benefits}</p>
                       <div className="nutrients">
-                        {meal.nutrients.map((nutrient, idx) => (
+                        {(meal.nutrients || []).map((nutrient, idx) => (
                           <span key={idx} className="nutrient">{nutrient}</span>
                         ))}
                       </div>
@@ -424,12 +370,12 @@ const SkinRoutine = ({ latestAnalysis }) => {
 
                 <div className="meal-section">
                   <h4><Moon size={18} className="inline-icon" /> Dinner</h4>
-                  {dietPlan.dailyPlan.dinner.map((meal, index) => (
+                  {(dietPlan.dailyPlan?.dinner || []).map((meal, index) => (
                     <div key={index} className="meal-item">
                       <h5>{meal.food}</h5>
                       <p>{meal.benefits}</p>
                       <div className="nutrients">
-                        {meal.nutrients.map((nutrient, idx) => (
+                        {(meal.nutrients || []).map((nutrient, idx) => (
                           <span key={idx} className="nutrient">{nutrient}</span>
                         ))}
                       </div>
@@ -439,12 +385,12 @@ const SkinRoutine = ({ latestAnalysis }) => {
 
                 <div className="meal-section">
                   <h4><Apple size={18} className="inline-icon" /> Snacks</h4>
-                  {dietPlan.dailyPlan.snacks.map((meal, index) => (
+                  {(dietPlan.dailyPlan?.snacks || []).map((meal, index) => (
                     <div key={index} className="meal-item">
                       <h5>{meal.food}</h5>
                       <p>{meal.benefits}</p>
                       <div className="nutrients">
-                        {meal.nutrients.map((nutrient, idx) => (
+                        {(meal.nutrients || []).map((nutrient, idx) => (
                           <span key={idx} className="nutrient">{nutrient}</span>
                         ))}
                       </div>
@@ -457,7 +403,7 @@ const SkinRoutine = ({ latestAnalysis }) => {
                 <div className="info-section">
                   <h4><Pill size={18} className="inline-icon" /> Recommended Supplements</h4>
                   <div className="supplements">
-                    {dietPlan.supplements.map((supplement, index) => (
+                    {(dietPlan.supplements || []).map((supplement, index) => (
                       <div key={index} className="supplement-item">
                         <div className="supplement-name">{supplement.name}</div>
                         <div className="supplement-dosage">{supplement.dosage}</div>
@@ -470,9 +416,9 @@ const SkinRoutine = ({ latestAnalysis }) => {
                 <div className="info-section">
                   <h4><DropletIcon size={18} className="inline-icon" /> Hydration Goals</h4>
                   <div className="hydration-info">
-                    <div className="water-goal">Target: {dietPlan.hydration.waterGoal}</div>
+                    <div className="water-goal">Target: {dietPlan.hydration?.waterGoal}</div>
                     <ul className="hydration-tips">
-                      {dietPlan.hydration.tips.map((tip, index) => (
+                      {(dietPlan.hydration?.tips || []).map((tip, index) => (
                         <li key={index}>{tip}</li>
                       ))}
                     </ul>
@@ -482,7 +428,7 @@ const SkinRoutine = ({ latestAnalysis }) => {
                 <div className="info-section">
                   <h4><X size={18} className="inline-icon" /> Foods to Limit</h4>
                   <ul className="avoid-list">
-                    {dietPlan.avoid.map((item, index) => (
+                    {(dietPlan.avoid || []).map((item, index) => (
                       <li key={index}>{item}</li>
                     ))}
                   </ul>
@@ -491,10 +437,15 @@ const SkinRoutine = ({ latestAnalysis }) => {
                 <div className="info-section">
                   <h4><Star size={18} className="inline-icon" /> Skin Superfoods</h4>
                   <div className="superfoods">
-                    {dietPlan.skinFoods.map((food, index) => (
+                    {(dietPlan.skinFoods || []).map((food, index) => (
                       <div key={index} className="superfood-item">{food}</div>
                     ))}
                   </div>
+                </div>
+                <div style={{ marginTop: '1rem' }}>
+                  <button className="generate-btn" onClick={() => fetchDiet(true)} disabled={isGenerating}>
+                    {isGenerating ? 'Generating…' : 'Generate New Diet Plan'}
+                  </button>
                 </div>
               </div>
             </div>

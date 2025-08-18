@@ -33,6 +33,13 @@ class SkinAnalysisRequest(BaseModel):
     image_data: str
     clerk_user_id: Optional[str] = None
 
+# Added request models for routine and diet generation
+class RoutineRequest(BaseModel):
+    clerk_user_id: str
+
+class DietRequest(BaseModel):
+    clerk_user_id: str
+
 class SkinAnalyzer:
     def __init__(self):
         self.mp_face_mesh = mp.solutions.face_mesh.FaceMesh(
@@ -554,51 +561,95 @@ class SkinAnalyzer:
             return {"severity": "Unknown", "score": 0.0, "description": "Analysis failed"}
     
     def _analyze_redness(self, face_region: np.ndarray) -> Dict[str, Any]:
-        """Improved redness analysis using multiple color spaces"""
+        """Improved redness analysis with better handling of minimal redness"""
         try:
-            # Convert to multiple color spaces for better red detection
+            # Convert to multiple color spaces
             hsv = cv2.cvtColor(face_region, cv2.COLOR_BGR2HSV)
             lab = cv2.cvtColor(face_region, cv2.COLOR_BGR2LAB)
             
             # Method 1: HSV red detection with refined ranges
-            lower_red1 = np.array([0, 30, 30])
+            lower_red1 = np.array([0, 50, 50])  # Increased saturation threshold
             upper_red1 = np.array([10, 255, 255])
-            lower_red2 = np.array([170, 30, 30])
+            lower_red2 = np.array([170, 50, 50])  # Increased saturation threshold
             upper_red2 = np.array([180, 255, 255])
             
             mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
             mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
             red_mask = cv2.bitwise_or(mask1, mask2)
             
-            # Method 2: LAB color space analysis
-            # In LAB, 'a' channel represents green-red axis
+            # Method 2: Improved LAB color space analysis
             a_channel = lab[:, :, 1]
-            # Higher 'a' values indicate more red
-            red_intensity = np.mean(a_channel[a_channel > np.mean(a_channel)])
+            # Only consider pixels significantly above neutral (128)
+            red_threshold = 135  # More conservative threshold
+            red_pixels_lab = a_channel > red_threshold
             
-            # Method 3: BGR analysis
+            if np.sum(red_pixels_lab) > 0:
+                red_intensity = np.mean(a_channel[red_pixels_lab])
+            else:
+                red_intensity = 128  # Neutral value
+            
+            # Method 3: Improved BGR analysis with brightness consideration
             b, g, r = cv2.split(face_region)
-            # Calculate red dominance
-            red_dominance = np.mean(r.astype(float) / (b.astype(float) + g.astype(float) + r.astype(float) + 1e-6))
             
-            # Calculate redness percentage from mask
+            # Only analyze pixels that are bright enough to show color
+            brightness = (b.astype(float) + g.astype(float) + r.astype(float)) / 3
+            bright_mask = brightness > 50  # Ignore very dark pixels
+            
+            if np.sum(bright_mask) > 0:
+                r_bright = r[bright_mask].astype(float)
+                g_bright = g[bright_mask].astype(float)
+                b_bright = b[bright_mask].astype(float)
+                
+                # Calculate red dominance only for bright pixels
+                total_bright = r_bright + g_bright + b_bright + 1e-6
+                red_dominance = np.mean(r_bright / total_bright)
+                
+                # Additional check: red should be significantly higher than green and blue
+                red_advantage = np.mean((r_bright - g_bright) + (r_bright - b_bright)) / 255.0
+                red_advantage = max(0, red_advantage)  # Ensure non-negative
+            else:
+                red_dominance = 0.33  # Equal distribution
+                red_advantage = 0
+            
+            # Calculate redness percentage from mask (more conservative)
             red_pixels = np.sum(red_mask > 0)
             total_pixels = red_mask.shape[0] * red_mask.shape[1]
             redness_percentage = red_pixels / total_pixels
             
-            # Combine all metrics
-            normalized_red_intensity = min((red_intensity - 128) / 50.0, 1.0) if red_intensity > 128 else 0
-            redness_score = (redness_percentage * 0.4) + (normalized_red_intensity * 0.3) + (red_dominance * 0.3)
+            # Improved normalization for LAB intensity
+            normalized_red_intensity = max(0, (red_intensity - 140) / 40.0)  # More conservative
+            normalized_red_intensity = min(normalized_red_intensity, 1.0)
             
-            # Determine severity
-            if redness_score < 0.1:
+            # More conservative scoring with additional red advantage factor
+            redness_score = (
+                redness_percentage * 0.35 + 
+                normalized_red_intensity * 0.25 + 
+                red_dominance * 0.25 + 
+                red_advantage * 0.15
+            )
+            
+            # Apply additional filtering for very low scores
+            if redness_score < 0.05:
+                redness_score = 0.0
+            
+            # More conservative severity thresholds
+            if redness_score < 0.08:
                 severity = "None"
-            elif redness_score < 0.25:
+            elif redness_score < 0.2:
                 severity = "Mild"
-            elif redness_score < 0.5:
+            elif redness_score < 0.4:
                 severity = "Moderate"
             else:
                 severity = "Severe"
+            
+            # Additional validation: check if face region is mostly neutral colors
+            mean_color = np.mean(face_region, axis=(0, 1))
+            color_variance = np.var(face_region, axis=(0, 1))
+            
+            # If colors are very uniform and low variance, likely no significant redness
+            if np.max(color_variance) < 100 and redness_score < 0.15:
+                severity = "None"
+                redness_score = 0.0
             
             return {
                 "severity": severity,
@@ -606,13 +657,14 @@ class SkinAnalyzer:
                 "percentage": float(redness_percentage),
                 "red_intensity": float(red_intensity),
                 "red_dominance": float(red_dominance),
-                "description": f"{severity} redness (score: {redness_score:.2f})"
+                "red_advantage": float(red_advantage),
+                "description": f"{severity} redness (score: {redness_score:.3f})"
             }
             
         except Exception as e:
             logger.error(f"Error analyzing redness: {e}")
             return {"severity": "Unknown", "score": 0.0, "percentage": 0.0, "description": "Analysis failed"}
-    
+        
     def _get_under_eye_region(self, image: np.ndarray, landmarks, eye_landmarks: List[int], width: int, height: int) -> np.ndarray:
         """Extract under-eye region more accurately"""
         try:
@@ -755,7 +807,7 @@ class SkinAnalyzer:
 
             Please provide a JSON response with exactly these fields:
             {{
-                "skinType": "one of: Oily, Dry, Combination, Normal, Sensitive",
+                "skinType": "one of: Oily, Dry, Combination, Normal",
                 "concerns": ["list of top 3 concerns"],
                 "skinHealth": number from 0-100,
                 "recommendations": ["4-5 short specific actionable recommendations"],
@@ -986,3 +1038,204 @@ async def get_analysis_history(clerk_user_id: str, limit: int = 30, db=Depends(g
     except Exception as e:
         logger.error(f"Failed to fetch history: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch analysis history")
+
+@router.get("/routine/{clerk_user_id}")
+async def get_latest_routine(clerk_user_id: str, db=Depends(get_db)) -> JSONResponse:
+    try:
+        doc = await db.skin_routines.find_one({"clerk_user_id": clerk_user_id}, sort=[("created_at", -1)])
+        if not doc:
+            return JSONResponse(content=None)
+        # Serialize fields
+        serialized = {
+            "id": str(doc.get("_id")),
+            "clerk_user_id": doc.get("clerk_user_id"),
+            "created_at": doc.get("created_at").isoformat() if doc.get("created_at") else None,
+            "source_analysis_id": doc.get("source_analysis_id"),
+            "routine": doc.get("routine")
+        }
+        return JSONResponse(content=serialized)
+    except Exception as e:
+        logger.error(f"Error fetching routine: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch routine")
+
+@router.post("/routine")
+async def generate_routine(payload: RoutineRequest, db=Depends(get_db)) -> JSONResponse:
+    """Generate a personalized skincare routine using Gemini based on user profile and latest skin analysis."""
+    try:
+        user = await db.users.find_one({"clerk_user_id": payload.clerk_user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        latest_analysis = await db.skin_analyses.find_one(
+            {"clerk_user_id": payload.clerk_user_id}, sort=[["created_at", -1]]
+        )
+
+        if not latest_analysis:
+            raise HTTPException(status_code=404, detail="No skin analysis found for user")
+
+        age = user.get("age")
+        gender = user.get("gender")
+        sensitive_skin = user.get("sensitive_skin")
+        skinType = latest_analysis.get("comprehensive", {}).get("skinType")
+        metrics = latest_analysis.get("metrics", {})
+
+        # Build concise metrics summary for prompt
+        metrics_summary_lines = []
+        for name, data in metrics.items():
+            if isinstance(data, dict):
+                sev = data.get("severity")
+                score = data.get("score")
+                parts = []
+                if sev:
+                    parts.append(f"severity={sev}")
+                if isinstance(score, (float, int)):
+                    parts.append(f"score={score:.2f}")
+                if parts:
+                    metrics_summary_lines.append(f"- {name}: " + ", ".join(parts))
+
+        prompt = f"""
+        You are a dermatologist assistant. Create a complete skincare routine JSON based on the following profile and skin data.
+
+        Profile:
+        - Age: {age}
+        - Gender: {gender}
+        - Sensitive Skin: {sensitive_skin}
+        - Skin Type: {skinType}
+
+        Skin Metrics:
+        {chr(10).join(metrics_summary_lines)}
+
+        Return STRICT JSON with this schema (no commentary):
+        {{
+          "skinType": string,
+          "age": number,
+          "gender": string,
+          "sensitiveSkin": boolean,
+          "routine": {{
+            "morning": [{{"step": number, "product": string, "description": string, "duration": string, "ingredients": [string]}}],
+            "evening": [{{"step": number, "product": string, "description": string, "duration": string, "ingredients": [string]}}],
+            "weekly": [{{"frequency": string, "product": string, "description": string, "ingredients": [string]}}]
+          }},
+          "ingredients": [{{
+            "name": string,
+            "benefits": string,
+            "pros": [string],
+            "usage": string,
+            "warnings": [string]
+          }}]
+        }}
+        Make the products and ingredients appropriate for the provided age, gender, skin type, sensitivity, and metrics. Prefer gentle options when metrics indicate sensitivity or redness.
+        """
+
+        response = model.generate_content(prompt)
+
+        import json
+        text = (response.text or "").strip()
+        start = text.find('{')
+        end = text.rfind('}') + 1
+        if start == -1 or end <= start:
+            raise ValueError("No JSON in model response")
+        data = json.loads(text[start:end])
+
+        # Cache in DB
+        record = {
+            "clerk_user_id": payload.clerk_user_id,
+            "created_at": datetime.utcnow(),
+            "source_analysis_id": str(latest_analysis.get("_id")),
+            "routine": data,
+        }
+        await db.skin_routines.insert_one(record)
+        return JSONResponse(content=data)
+
+    except Exception as e:
+        logger.error(f"Error generating routine: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate routine")
+
+@router.get("/diet/{clerk_user_id}")
+async def get_latest_diet(clerk_user_id: str, db=Depends(get_db)) -> JSONResponse:
+    try:
+        doc = await db.skin_diets.find_one({"clerk_user_id": clerk_user_id}, sort=[("created_at", -1)])
+        if not doc:
+            return JSONResponse(content=None)
+        serialized = {
+            "id": str(doc.get("_id")),
+            "clerk_user_id": doc.get("clerk_user_id"),
+            "created_at": doc.get("created_at").isoformat() if doc.get("created_at") else None,
+            "source_analysis_id": doc.get("source_analysis_id"),
+            "diet": doc.get("diet")
+        }
+        return JSONResponse(content=serialized)
+    except Exception as e:
+        logger.error(f"Error fetching diet: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch diet plan")
+
+@router.post("/diet")
+async def generate_diet(payload: DietRequest, db=Depends(get_db)) -> JSONResponse:
+    try:
+        user = await db.users.find_one({"clerk_user_id": payload.clerk_user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        latest_analysis = await db.skin_analyses.find_one({"clerk_user_id": payload.clerk_user_id}, sort=[["created_at", -1]])
+        if not latest_analysis:
+            raise HTTPException(status_code=404, detail="No skin analysis found for user")
+
+        age = user.get("age")
+        gender = user.get("gender")
+        sensitive_skin = user.get("sensitive_skin")
+        skinType = latest_analysis.get("comprehensive", {}).get("skinType")
+        concerns = latest_analysis.get("comprehensive", {}).get("concerns", [])
+        metrics = latest_analysis.get("metrics", {})
+
+        metrics_summary_lines = []
+        for name, data in metrics.items():
+            if isinstance(data, dict):
+                sev = data.get("severity")
+                parts = []
+                if sev:
+                    parts.append(f"severity={sev}")
+                if parts:
+                    metrics_summary_lines.append(f"- {name}: " + ", ".join(parts))
+
+        prompt = f"""
+        You are a dermatologist-nutrition assistant. Create a skin-friendly nutrition plan JSON for this profile:
+        Age: {age}, Gender: {gender}, Sensitive Skin: {sensitive_skin}, Skin Type: {skinType}
+        Key concerns: {', '.join(concerns)}
+        Skin metrics summary:\n{chr(10).join(metrics_summary_lines)}
+
+        Return STRICT JSON (no commentary) with:
+        {{
+          "goals": [string],
+          "dailyPlan": {{
+            "breakfast": [{{"food": string, "benefits": string, "nutrients": [string]}}],
+            "lunch": [{{"food": string, "benefits": string, "nutrients": [string]}}],
+            "dinner": [{{"food": string, "benefits": string, "nutrients": [string]}}],
+            "snacks": [{{"food": string, "benefits": string, "nutrients": [string]}}]
+          }},
+          "supplements": [{{"name": string, "dosage": string, "benefits": string}}],
+          "hydration": {{"waterGoal": string, "tips": [string]}},
+          "avoid": [string],
+          "skinFoods": [string]
+        }}
+        Make choices gentle for sensitive skin if applicable; avoid triggers for acne/redness; emphasize anti-inflammatory foods.
+        """
+
+        response = model.generate_content(prompt)
+        import json
+        text = (response.text or "").strip()
+        start = text.find('{'); end = text.rfind('}') + 1
+        if start == -1 or end <= start:
+            raise ValueError("No JSON in model response")
+        data = json.loads(text[start:end])
+
+        record = {
+            "clerk_user_id": payload.clerk_user_id,
+            "created_at": datetime.utcnow(),
+            "source_analysis_id": str(latest_analysis.get("_id")),
+            "diet": data,
+        }
+        await db.skin_diets.insert_one(record)
+        return JSONResponse(content=data)
+    except Exception as e:
+        logger.error(f"Error generating diet: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate diet plan")

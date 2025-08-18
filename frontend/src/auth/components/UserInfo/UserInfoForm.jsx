@@ -10,7 +10,8 @@ const UserInfoForm = () => {
   const [formData, setFormData] = useState({
     fullName: '',
     age: '',
-    gender: ''
+    gender: '',
+    sensitiveSkin: ''
   });
   
   const [errors, setErrors] = useState({});
@@ -23,7 +24,6 @@ const UserInfoForm = () => {
       [name]: value
     }));
     
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -48,6 +48,10 @@ const UserInfoForm = () => {
     if (!formData.gender) {
       newErrors.gender = 'Please select your gender';
     }
+
+    if (!formData.sensitiveSkin) {
+      newErrors.sensitiveSkin = 'Please specify if you have sensitive skin';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -63,103 +67,52 @@ const UserInfoForm = () => {
     setIsSubmitting(true);
     
     try {
-      // Store user profile data for faster access
       const userProfileData = {
         fullName: formData.fullName,
         age: parseInt(formData.age),
         gender: formData.gender,
+        sensitiveSkin: formData.sensitiveSkin === 'yes',
         profileCompleted: true,
         userId: user.id
       };
       
       localStorage.setItem('userProfile', JSON.stringify(userProfileData));
-      console.log('Stored user profile in localStorage:', userProfileData);
-      
-      // Update user metadata in Clerk
       await user.update({
         unsafeMetadata: {
           ...user.unsafeMetadata,
           ...userProfileData
         }
       });
-      console.log('Updated Clerk metadata successfully');
-      
-      // Force a reload of user data
       await user.reload();
       
-      // Try to save to database (optional - won't fail if backend is down)
       try {
-        console.log('Attempting to sync user with database...');
-        
-        // First, ensure user exists in database by calling sync endpoint
         const syncPayload = {
           clerk_user_id: user.id,
           email: user.emailAddresses[0]?.emailAddress || user.email || 'test@example.com'
         };
-        console.log('Sync payload:', syncPayload);
-        
-        const syncResponse = await fetch('http://localhost:8000/users/sync', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(syncPayload)
+        await fetch('http://localhost:8000/users/sync', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(syncPayload)
         });
-        
-        console.log('Sync response status:', syncResponse.status);
-        
-        if (syncResponse.ok) {
-          const syncData = await syncResponse.json();
-          console.log('Sync successful:', syncData);
-          
-          // Then, save profile to database
-          const profilePayload = {
-            full_name: formData.fullName,
-            age: parseInt(formData.age),
-            gender: formData.gender
-          };
-          console.log('Profile update payload:', profilePayload);
-          
-          const response = await fetch(`http://localhost:8000/users/profile/${user.id}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(profilePayload)
-          });
-          
-          console.log('Profile update response status:', response.status);
-          
-          if (response.ok) {
-            const profileData = await response.json();
-            console.log('Successfully saved to database:', profileData);
-          } else {
-            const errorData = await response.text();
-            console.log('Profile update failed:', errorData);
-          }
-        } else {
-          const errorData = await syncResponse.text();
-          console.log('Sync failed:', errorData);
-        }
-      } catch (dbError) {
-        console.warn('Database save failed, but user profile saved locally:', dbError);
-      }
+        const profilePayload = {
+          full_name: formData.fullName,
+          age: parseInt(formData.age),
+          gender: formData.gender,
+          sensitive_skin: formData.sensitiveSkin === 'yes'
+        };
+        await fetch(`http://localhost:8000/users/profile/${user.id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profilePayload)
+        });
+      } catch {}
       
-      // Navigate after successful update
       navigate('/');
       
     } catch (error) {
-      console.error('Error updating user profile:', error);
-      
-      // More specific error messages
       let errorMessage = 'Failed to save information. Please try again.';
-      
       if (error.message && error.message.includes('network')) {
         errorMessage = 'Network error. Please check your connection and try again.';
       } else if (error.message && error.message.includes('permission')) {
         errorMessage = 'Permission error. Please try signing out and back in.';
       }
-      
       setErrors({ submit: errorMessage });
     } finally {
       setIsSubmitting(false);
@@ -219,6 +172,22 @@ const UserInfoForm = () => {
               <option value="male">Male</option>
             </select>
             {errors.gender && <span className="error-message">{errors.gender}</span>}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="sensitiveSkin">Sensitive Skin</label>
+            <select
+              id="sensitiveSkin"
+              name="sensitiveSkin"
+              value={formData.sensitiveSkin}
+              onChange={handleInputChange}
+              className={errors.sensitiveSkin ? 'error' : ''}
+            >
+              <option value="">Select an option</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+            {errors.sensitiveSkin && <span className="error-message">{errors.sensitiveSkin}</span>}
           </div>
 
           {errors.submit && (

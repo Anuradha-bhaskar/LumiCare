@@ -221,10 +221,10 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
 
                   <div className="form-actions">
                     <button className="save-btn" onClick={handleSave}>
-                      💾 Save Changes
+                      <Save size={16} className="inline-icon" /> Save Changes
                     </button>
                     <button className="cancel-btn" onClick={handleCancel}>
-                      ❌ Cancel
+                      <X size={16} className="inline-icon" /> Cancel
                     </button>
                   </div>
                 </div>
@@ -234,10 +234,10 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
         </div>
 
         <div className="profile-stats">
-          <h3>📊 Your Skincare Journey</h3>
+          <h3><BarChart3 size={20} className="inline-icon" /> Your Skincare Journey</h3>
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-icon">📈</div>
+              <div className="stat-icon"><TrendingUp size={20} /></div>
               <div className="stat-content">
                 <div className="stat-number">{stats.total}</div>
                 <div className="stat-label">Total Analyses</div>
@@ -245,7 +245,7 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">📅</div>
+              <div className="stat-icon"><Calendar size={20} /></div>
               <div className="stat-content">
                 <div className="stat-number">{stats.thisMonth}</div>
                 <div className="stat-label">This Month</div>
@@ -253,7 +253,7 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">🎯</div>
+              <div className="stat-icon"><Target size={20} /></div>
               <div className="stat-content">
                 <div className="stat-number">{stats.averageHealth}%</div>
                 <div className="stat-label">Avg. Skin Health</div>
@@ -261,7 +261,7 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
             </div>
 
             <div className="stat-card">
-              <div className="stat-icon">{stats.improvementTrend >= 0 ? '📈' : '📉'}</div>
+              <div className="stat-icon">{stats.improvementTrend >= 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}</div>
               <div className="stat-content">
                 <div className={`stat-number ${stats.improvementTrend >= 0 ? 'positive' : 'negative'}`}>
                   {stats.improvementTrend > 0 ? '+' : ''}{stats.improvementTrend}%
@@ -273,7 +273,7 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
 
           {stats.lastAnalysis && (
             <div className="last-analysis">
-              <h4>🔍 Latest Analysis</h4>
+              <h4><Search size={16} className="inline-icon" /> Latest Analysis</h4>
               <div className="analysis-summary">
                 <div className="analysis-date">
                   {formatDate(stats.lastAnalysis.timestamp)}
@@ -301,7 +301,7 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
 
         {userProfile && (
           <div className="profile-preferences">
-            <h3>🎯 Your Skincare Profile</h3>
+            <h3><Target size={20} className="inline-icon" /> Your Skincare Profile</h3>
             
             {userProfile.skinGoals && userProfile.skinGoals.length > 0 && (
               <div className="preference-section">
@@ -351,13 +351,13 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
 
         {(!analysisHistory || analysisHistory.length === 0) && (
           <div className="no-data-card">
-            <div className="no-data-icon">📊</div>
+            <div className="no-data-icon"><BarChart3 size={32} /></div>
             <h3>Start Your Skincare Journey</h3>
             <p>Take your first skin analysis to begin tracking your progress and get personalized recommendations!</p>
             <div className="journey-features">
-              <div className="feature">📈 Track progress over time</div>
-              <div className="feature">🎯 Get personalized recommendations</div>
-              <div className="feature">📝 Keep detailed analysis history</div>
+              <div className="feature"><TrendingUp size={16} className="inline-icon" /> Track progress over time</div>
+              <div className="feature"><Target size={16} className="inline-icon" /> Get personalized recommendations</div>
+              <div className="feature"><FileText size={16} className="inline-icon" /> Keep detailed analysis history</div>
             </div>
           </div>
         )}

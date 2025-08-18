@@ -2,11 +2,13 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { Camera, Search, BarChart3, Lightbulb, MapPin, Target } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 import './SkinAnalysis.css';
 
 const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
   const webcamRef = useRef(null);
   const { user } = useUser();
+  const navigate = useNavigate();
   const [step, setStep] = useState('ready'); // ready, camera, analyzing, results
   const [cameraChecks, setCameraChecks] = useState({
     lighting: false,
@@ -20,6 +22,7 @@ const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
   const [capturedImage, setCapturedImage] = useState(null);
   const [countdown, setCountdown] = useState(0);
   const [highlightedMetric, setHighlightedMetric] = useState(null);
+  const [isGeneratingRoutine, setIsGeneratingRoutine] = useState(false);
 
   // Real AI analysis function using MediaPipe, OpenCV, and Gemini
   const analyzeImage = async (imageData) => {
@@ -58,7 +61,6 @@ const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
       throw error;
     }
   };
-
 
   // Real camera quality checks using MediaPipe and OpenCV
   useEffect(() => {
@@ -234,6 +236,30 @@ const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
       </li>
     )
   );
+
+  const generateRoutineAndDietThenNavigate = async () => {
+    setIsGeneratingRoutine(true);
+    try {
+      const effectiveUserId = clerkUserId || user?.id || null;
+      if (effectiveUserId) {
+        localStorage.setItem('last_clerk_user_id', effectiveUserId);
+        // Fire and forget generate calls; backend uses latest saved analysis
+        await Promise.allSettled([
+          fetch('http://localhost:8000/api/skin/routine', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clerk_user_id: effectiveUserId })
+          }),
+          fetch('http://localhost:8000/api/skin/diet', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clerk_user_id: effectiveUserId })
+          })
+        ]);
+      }
+    } catch (e) {
+      console.error('Failed to pre-generate routine/diet:', e);
+    } finally {
+      setIsGeneratingRoutine(false);
+      navigate('/routine');
+    }
+  };
 
   return (
     <div className="skin-analysis">
@@ -478,7 +504,7 @@ const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
                     <ul className="stat-list">
                       <StatItem label="Count" value={analysisResult.metrics.pores?.count} digits={0} />
                       <StatItem label="Avg Size" value={analysisResult.metrics.pores?.avg_size} />
-                      <StatItem label="Density" value={analysisResult.metrics.pores?.density} />
+                      <StatItem label="Density (per 100x100)" value={analysisResult.metrics.pores?.density} />
                     </ul>
                   </div>
                   )}
@@ -607,12 +633,10 @@ const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
             </button>
             <button 
               className="primary-btn"
-              onClick={() => {
-                // This will be implemented later to navigate to routine tab
-                alert('Skincare routine feature coming soon!');
-              }}
+              onClick={generateRoutineAndDietThenNavigate}
+              disabled={isGeneratingRoutine}
             >
-              Get My Routine
+              {isGeneratingRoutine ? 'Loading...' : 'Get My Routine'}
             </button>
           </div>
         </div>

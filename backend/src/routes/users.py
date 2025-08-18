@@ -24,6 +24,7 @@ async def get_all_users(db=Depends(get_db)):
             "full_name": user.get("full_name"),
             "gender": user.get("gender"),
             "age": user.get("age"),
+            "sensitive_skin": user.get("sensitive_skin"),
             "created_at": user["created_at"],
         })
     return result
@@ -49,6 +50,7 @@ async def sync_user(payload: UserSync, db=Depends(get_db)):
                 "full_name": existing.get("full_name"),
                 "gender": existing.get("gender"),
                 "age": existing.get("age"),
+                "sensitive_skin": existing.get("sensitive_skin"),
                 "created_at": existing["created_at"],
             }
 
@@ -59,6 +61,7 @@ async def sync_user(payload: UserSync, db=Depends(get_db)):
             "full_name": None,
             "gender": None,
             "age": None,
+            "sensitive_skin": None,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }
@@ -71,6 +74,7 @@ async def sync_user(payload: UserSync, db=Depends(get_db)):
             "full_name": saved.get("full_name"),
             "gender": saved.get("gender"),
             "age": saved.get("age"),
+            "sensitive_skin": saved.get("sensitive_skin"),
             "created_at": saved["created_at"],
         }
     except Exception as e:
@@ -105,6 +109,8 @@ async def update_user_profile(
         update_data["gender"] = payload.gender
     if payload.age is not None:
         update_data["age"] = payload.age
+    if payload.sensitive_skin is not None:
+        update_data["sensitive_skin"] = payload.sensitive_skin
     
     update_data["updated_at"] = datetime.utcnow()
     
@@ -123,5 +129,6 @@ async def update_user_profile(
         "full_name": updated_user.get("full_name"),
         "gender": updated_user.get("gender"),
         "age": updated_user.get("age"),
+        "sensitive_skin": updated_user.get("sensitive_skin"),
         "created_at": updated_user["created_at"],
     }

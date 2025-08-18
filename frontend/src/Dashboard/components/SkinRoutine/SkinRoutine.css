@@ -243,6 +243,64 @@
   font-weight: 500;
 }
 
+.ingredient.link {
+  background: transparent;
+  color: var(--peach-primary);
+  border: 1px solid var(--peach-primary);
+  cursor: pointer;
+}
+
+.ingredient-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.ingredient-card {
+  background: #fff;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  padding: 1.25rem 1.25rem 1rem 1.25rem;
+  position: relative;
+  overflow-y: auto;
+}
+
+.ingredient-card h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+}
+
+.ingredient-card .benefits {
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.ingredient-card h4 {
+  margin: 1rem 0 0.5rem 0;
+  color: var(--text-primary);
+}
+
+.ingredient-card ul {
+  padding-left: 1.25rem;
+  margin: 0;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
 .weekly-treatments {
   display: grid;
   gap: 1.5rem;

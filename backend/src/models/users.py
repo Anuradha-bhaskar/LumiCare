@@ -7,6 +7,7 @@ class UserBase(BaseModel):
     full_name: Optional[str] = None
     gender: Optional[str] = Field(None, description="Gender: 'male', 'female'")
     age: Optional[int] = Field(None, ge=0, le=100, description="Age must be between 0 and 100")
+    sensitive_skin: Optional[bool] = Field(default=None, description="Whether user reports sensitive skin")
 
 class UserCreate(UserBase):
     clerk_user_id: str = Field(..., description="Clerk user ID for authentication")
@@ -20,6 +21,7 @@ class UserUpdate(UserBase):
     full_name: Optional[str] = None
     gender: Optional[str] = None
     age: Optional[int] = None
+    sensitive_skin: Optional[bool] = None
 
 class UserDB(UserBase):
     id: PyObjectId = Field(alias="_id")
