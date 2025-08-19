@@ -315,6 +315,17 @@
   font-size: 0.9rem;
 }
 
+/* Chart polish */
+.recharts-legend-item-text {
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+}
+
+.recharts-default-tooltip {
+  border-radius: 8px !important;
+  border: 1px solid var(--border-color) !important;
+}
+
 .empty-state, .insufficient-data {
   text-align: center;
   padding: 4rem 2rem;

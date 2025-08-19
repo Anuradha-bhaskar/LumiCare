@@ -136,6 +136,7 @@ const Dashboard = () => {
           {activeTab === 'progress' && (
             <ProgressTracker 
               analysisHistory={analysisHistory}
+              clerkUserId={user?.id}
             />
           )}
           

@@ -1,12 +1,41 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { TrendingUp, TrendingDown, ArrowRight, BarChart3, Calendar, Target } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from 'recharts';
 import './ProgressTracker.css';
 
-const ProgressTracker = ({ analysisHistory }) => {
+const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
   const [selectedTimeframe, setSelectedTimeframe] = useState('all'); // all, week, month, 3months
+  const [history, setHistory] = useState(analysisHistory || []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setHistory(analysisHistory || []);
+  }, [analysisHistory]);
+
+  useEffect(() => {
+    const fetchIfNeeded = async () => {
+      if ((!history || history.length === 0) && clerkUserId) {
+        try {
+          setLoading(true);
+          setError(null);
+          const res = await fetch(`http://localhost:8000/api/skin/history/${clerkUserId}`);
+          if (!res.ok) throw new Error('Failed to fetch history');
+          const data = await res.json();
+          setHistory(data || []);
+        } catch (e) {
+          setError('Unable to load progress history');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    fetchIfNeeded();
+  }, [clerkUserId]);
 
   const filteredHistory = useMemo(() => {
-    if (!analysisHistory || analysisHistory.length === 0) return [];
+    const list = history || [];
+    if (list.length === 0) return [];
     
     const now = new Date();
     let cutoffDate;
@@ -22,78 +51,173 @@ const ProgressTracker = ({ analysisHistory }) => {
         cutoffDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
         break;
       default:
-        return analysisHistory;
+        return list;
     }
     
-    return analysisHistory.filter(analysis => 
+    return list.filter(analysis => 
       new Date(analysis.timestamp) >= cutoffDate
     );
-  }, [analysisHistory, selectedTimeframe]);
+  }, [history, selectedTimeframe]);
 
+  // Helper conversions
   const toPercent = (value) => {
     if (typeof value !== 'number') return null;
     if (value <= 1) return Math.round(value * 100);
     return Math.round(Math.max(0, Math.min(100, value)));
   };
-
   const getMetricPercent = (analysis, key) => {
     const score = analysis?.analysis?.metrics?.[key]?.score;
     return toPercent(score);
   };
 
-  const progressData = useMemo(() => {
-    if (filteredHistory.length < 2) return null;
-    
-    const latest = filteredHistory[0];
-    const oldest = filteredHistory[filteredHistory.length - 1];
-    
-    const latestSkinHealth = typeof latest?.analysis?.skinHealth === 'number' ? latest.analysis.skinHealth : null;
-    const oldestSkinHealth = typeof oldest?.analysis?.skinHealth === 'number' ? oldest.analysis.skinHealth : null;
-
-    const latestMetrics = {
-      hydration: getMetricPercent(latest, 'hydration'),
-      pigmentation: getMetricPercent(latest, 'pigmentation'),
-      wrinkles: getMetricPercent(latest, 'wrinkles'),
-      pores: getMetricPercent(latest, 'pores'),
-    };
-    const oldestMetrics = {
-      hydration: getMetricPercent(oldest, 'hydration'),
-      pigmentation: getMetricPercent(oldest, 'pigmentation'),
-      wrinkles: getMetricPercent(oldest, 'wrinkles'),
-      pores: getMetricPercent(oldest, 'pores'),
-    };
-
-    const improvements = {
-      hydration: latestMetrics.hydration != null && oldestMetrics.hydration != null ? (latestMetrics.hydration - oldestMetrics.hydration) : null,
-      pigmentation: latestMetrics.pigmentation != null && oldestMetrics.pigmentation != null ? (latestMetrics.pigmentation - oldestMetrics.pigmentation) : null,
-      wrinkles: latestMetrics.wrinkles != null && oldestMetrics.wrinkles != null ? (latestMetrics.wrinkles - oldestMetrics.wrinkles) : null,
-      pores: latestMetrics.pores != null && oldestMetrics.pores != null ? (latestMetrics.pores - oldestMetrics.pores) : null,
-      overall: latestSkinHealth != null && oldestSkinHealth != null ? (latestSkinHealth - oldestSkinHealth) : null,
-    };
-    
-    return {
-      latest,
-      oldest,
-      latestMetrics,
-      oldestMetrics,
-      improvements,
-      totalAnalyses: filteredHistory.length,
-      timeSpan: Math.ceil((new Date(latest.timestamp) - new Date(oldest.timestamp)) / (1000 * 60 * 60 * 24))
-    };
+  // Raw set of metric keys from data
+  const allMetricKeys = useMemo(() => {
+    const keys = new Set();
+    filteredHistory.forEach(a => {
+      const m = a?.analysis?.metrics || {};
+      Object.keys(m).forEach(k => keys.add(k));
+    });
+    return Array.from(keys);
   }, [filteredHistory]);
 
-  const getImprovementColor = (value) => {
-    if (value == null) return 'var(--text-secondary)';
-    if (value > 5) return 'var(--success)';
-    if (value < -5) return 'var(--error)';
+  // Only keep metrics that have numeric score at least once
+  const numericMetricKeys = useMemo(() => {
+    return allMetricKeys.filter((k) => {
+      return filteredHistory.some((a) => typeof a?.analysis?.metrics?.[k]?.score === 'number');
+    });
+  }, [filteredHistory, allMetricKeys]);
+
+  // Metrics that have at least two numeric points -> for trend chart and improvement
+  const trendMetricKeys = useMemo(() => {
+    return numericMetricKeys.filter((k) => {
+      let count = 0;
+      for (const a of filteredHistory) {
+        if (typeof a?.analysis?.metrics?.[k]?.score === 'number') count++;
+        if (count >= 2) return true;
+      }
+      return false;
+    });
+  }, [filteredHistory, numericMetricKeys]);
+
+  // Direction map for clarity (true = higher is better)
+  const higherIsBetter = {
+    hydration: true,
+    skinHealth: true,
+    // Most other metrics represent issues (higher => worse)
+    pigmentation: false,
+    wrinkles: false,
+    pores: false,
+    oiliness: false,
+    acne: false,
+    darkCircles: false,
+    redness: false,
+  };
+  const isHigherBetter = (key) => higherIsBetter[key] === true;
+
+  // Build chronological series
+  const chronological = useMemo(() => filteredHistory.slice().reverse(), [filteredHistory]);
+
+  const progressData = useMemo(() => {
+    if (chronological.length < 2) return null;
+
+    // Overall skin health earliest/latest
+    const overallBefore = (() => {
+      for (const a of chronological) {
+        if (typeof a?.analysis?.skinHealth === 'number') return a.analysis.skinHealth;
+      }
+      return null;
+    })();
+    const overallNow = (() => {
+      for (let i = chronological.length - 1; i >= 0; i--) {
+        const a = chronological[i];
+        if (typeof a?.analysis?.skinHealth === 'number') return a.analysis.skinHealth;
+      }
+      return null;
+    })();
+
+    // Per-metric earliest/latest non-null
+    const beforeMetrics = {};
+    const nowMetrics = {};
+    trendMetricKeys.forEach((key) => {
+      // earliest non-null
+      let b = null;
+      for (const a of chronological) {
+        const v = getMetricPercent(a, key);
+        if (v != null) { b = v; break; }
+      }
+      // latest non-null
+      let n = null;
+      for (let i = chronological.length - 1; i >= 0; i--) {
+        const v = getMetricPercent(chronological[i], key);
+        if (v != null) { n = v; break; }
+      }
+      beforeMetrics[key] = b;
+      nowMetrics[key] = n;
+    });
+
+    const improvements = trendMetricKeys.reduce((acc, key) => {
+      const b = beforeMetrics[key];
+      const n = nowMetrics[key];
+      acc[key] = b != null && n != null ? (n - b) : null;
+      return acc;
+    }, {});
+
+    const overallChange = overallBefore != null && overallNow != null ? (overallNow - overallBefore) : null;
+
+    return {
+      beforeMetrics,
+      nowMetrics,
+      improvements: { ...improvements, overall: overallChange },
+      totalAnalyses: filteredHistory.length,
+      timeSpan: Math.ceil((new Date(filteredHistory[0].timestamp) - new Date(filteredHistory[filteredHistory.length - 1].timestamp)) / (1000 * 60 * 60 * 24))
+    };
+  }, [chronological, filteredHistory, trendMetricKeys]);
+
+  // Chart series: chronological order and dynamic metric keys
+  const chartSeries = useMemo(() => {
+    return chronological.map((a) => {
+      const row = {
+        date: new Date(a.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        skinHealth: typeof a?.analysis?.skinHealth === 'number' ? a.analysis.skinHealth : null,
+      };
+      trendMetricKeys.forEach((k) => {
+        row[k] = getMetricPercent(a, k);
+      });
+      return row;
+    });
+  }, [chronological, trendMetricKeys]);
+
+  const colorPalette = ['#4caf50', '#ff9800', '#9c27b0', '#03a9f4', '#f44336', '#795548', '#607d8b', '#8bc34a', '#ff5722', '#3f51b5'];
+  const getColorForMetric = (key) => {
+    const idx = trendMetricKeys.indexOf(key);
+    return colorPalette[idx % colorPalette.length];
+  };
+  const prettyMetricName = (key) => key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+
+  const getImprovementColor = (key, delta) => {
+    if (delta == null) return 'var(--text-secondary)';
+    const better = isHigherBetter(key) ? delta > 0 : delta < 0;
+    const worse = isHigherBetter(key) ? delta < 0 : delta > 0;
+    if (better && Math.abs(delta) > 2) return 'var(--success)';
+    if (worse && Math.abs(delta) > 2) return 'var(--error)';
     return 'var(--warning)';
   };
 
-  const getImprovementIcon = (value) => {
-    if (value == null) return <ArrowRight size={16} />;
-    if (value > 5) return <TrendingUp size={16} />;
-    if (value < -5) return <TrendingDown size={16} />;
+  const getImprovementIcon = (key, delta) => {
+    if (delta == null) return <ArrowRight size={16} />;
+    const better = isHigherBetter(key) ? delta > 0 : delta < 0;
+    const worse = isHigherBetter(key) ? delta < 0 : delta > 0;
+    if (better) return <TrendingUp size={16} />;
+    if (worse) return <TrendingDown size={16} />;
     return <ArrowRight size={16} />;
+  };
+
+  const improvementLabel = (key, delta) => {
+    if (delta == null) return 'No data';
+    const abs = Math.abs(delta).toFixed(1);
+    if (abs === '0.0') return 'No change';
+    const better = isHigherBetter(key) ? delta > 0 : delta < 0;
+    return better ? `Improved by ${abs}%` : `Worsened by ${abs}%`;
   };
 
   const formatDate = (dateString) => {
@@ -104,7 +228,19 @@ const ProgressTracker = ({ analysisHistory }) => {
     });
   };
 
-  if (!analysisHistory || analysisHistory.length === 0) {
+  if (loading) {
+    return (
+      <div className="progress-tracker">
+        <div className="empty-state">
+          <div className="empty-icon"><BarChart3 size={48} /></div>
+          <h2>Loading your progress...</h2>
+          <p>Please wait while we fetch your analysis history.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if ((!history || history.length === 0) && !loading) {
     return (
       <div className="progress-tracker">
         <div className="empty-state">
@@ -126,6 +262,7 @@ const ProgressTracker = ({ analysisHistory }) => {
       <div className="progress-header">
         <h2><TrendingUp size={24} className="inline-icon" /> Your Skin Progress Journey</h2>
         <p>Track your skin health improvements over time</p>
+        {error && <p style={{ color: 'var(--error)', marginTop: '0.5rem' }}>{error}</p>}
       </div>
 
       <div className="timeframe-selector">
@@ -155,6 +292,7 @@ const ProgressTracker = ({ analysisHistory }) => {
         </button>
       </div>
 
+      {/* Overview & Overall Trend */}
       {progressData && (
         <>
           <div className="progress-overview">
@@ -172,7 +310,7 @@ const ProgressTracker = ({ analysisHistory }) => {
                 <div className="stat">
                   <span 
                     className="stat-number"
-                    style={{ color: getImprovementColor(progressData.improvements.overall) }}
+                    style={{ color: getImprovementColor('skinHealth', progressData.improvements.overall) }}
                   >
                     {progressData.improvements.overall != null && progressData.improvements.overall > 0 ? '+' : ''}
                     {progressData.improvements.overall != null ? progressData.improvements.overall.toFixed(1) : '—'}%
@@ -183,193 +321,157 @@ const ProgressTracker = ({ analysisHistory }) => {
             </div>
           </div>
 
-          <div className="metrics-comparison">
-            <h3>Metric Improvements</h3>
-            <div className="metrics-grid">
-              {/* Hydration */}
-              <div className="metric-comparison">
-                <div className="metric-header">
-                  <span className="metric-name">Hydration</span>
-                  <span className="metric-change" style={{ color: getImprovementColor(progressData.improvements.hydration) }}>
-                    {getImprovementIcon(progressData.improvements.hydration)}
-                    {progressData.improvements.hydration != null && progressData.improvements.hydration > 0 ? '+' : ''}
-                    {progressData.improvements.hydration != null ? progressData.improvements.hydration.toFixed(1) : '—'}%
-                  </span>
-                </div>
-                <div className="metric-bars">
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Before</span>
-                    <div className="metric-bar old">
-                      <div 
-                        className="metric-fill old" 
-                        style={{ width: `${progressData.oldestMetrics.hydration ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.oldestMetrics.hydration != null ? `${progressData.oldestMetrics.hydration}%` : '—'}</span>
-                  </div>
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Now</span>
-                    <div className="metric-bar new">
-                      <div 
-                        className="metric-fill new" 
-                        style={{ width: `${progressData.latestMetrics.hydration ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.latestMetrics.hydration != null ? `${progressData.latestMetrics.hydration}%` : '—'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pigmentation */}
-              <div className="metric-comparison">
-                <div className="metric-header">
-                  <span className="metric-name">Pigmentation</span>
-                  <span className="metric-change" style={{ color: getImprovementColor(progressData.improvements.pigmentation) }}>
-                    {getImprovementIcon(progressData.improvements.pigmentation)}
-                    {progressData.improvements.pigmentation != null && progressData.improvements.pigmentation > 0 ? '+' : ''}
-                    {progressData.improvements.pigmentation != null ? progressData.improvements.pigmentation.toFixed(1) : '—'}%
-                  </span>
-                </div>
-                <div className="metric-bars">
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Before</span>
-                    <div className="metric-bar old">
-                      <div 
-                        className="metric-fill old" 
-                        style={{ width: `${progressData.oldestMetrics.pigmentation ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.oldestMetrics.pigmentation != null ? `${progressData.oldestMetrics.pigmentation}%` : '—'}</span>
-                  </div>
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Now</span>
-                    <div className="metric-bar new">
-                      <div 
-                        className="metric-fill new" 
-                        style={{ width: `${progressData.latestMetrics.pigmentation ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.latestMetrics.pigmentation != null ? `${progressData.latestMetrics.pigmentation}%` : '—'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Wrinkles */}
-              <div className="metric-comparison">
-                <div className="metric-header">
-                  <span className="metric-name">Wrinkles</span>
-                  <span className="metric-change" style={{ color: getImprovementColor(progressData.improvements.wrinkles) }}>
-                    {getImprovementIcon(progressData.improvements.wrinkles)}
-                    {progressData.improvements.wrinkles != null && progressData.improvements.wrinkles > 0 ? '+' : ''}
-                    {progressData.improvements.wrinkles != null ? progressData.improvements.wrinkles.toFixed(1) : '—'}%
-                  </span>
-                </div>
-                <div className="metric-bars">
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Before</span>
-                    <div className="metric-bar old">
-                      <div 
-                        className="metric-fill old" 
-                        style={{ width: `${progressData.oldestMetrics.wrinkles ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.oldestMetrics.wrinkles != null ? `${progressData.oldestMetrics.wrinkles}%` : '—'}</span>
-                  </div>
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Now</span>
-                    <div className="metric-bar new">
-                      <div 
-                        className="metric-fill new" 
-                        style={{ width: `${progressData.latestMetrics.wrinkles ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.latestMetrics.wrinkles != null ? `${progressData.latestMetrics.wrinkles}%` : '—'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pores */}
-              <div className="metric-comparison">
-                <div className="metric-header">
-                  <span className="metric-name">Pores</span>
-                  <span className="metric-change" style={{ color: getImprovementColor(progressData.improvements.pores) }}>
-                    {getImprovementIcon(progressData.improvements.pores)}
-                    {progressData.improvements.pores != null && progressData.improvements.pores > 0 ? '+' : ''}
-                    {progressData.improvements.pores != null ? progressData.improvements.pores.toFixed(1) : '—'}%
-                  </span>
-                </div>
-                <div className="metric-bars">
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Before</span>
-                    <div className="metric-bar old">
-                      <div 
-                        className="metric-fill old" 
-                        style={{ width: `${progressData.oldestMetrics.pores ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.oldestMetrics.pores != null ? `${progressData.oldestMetrics.pores}%` : '—'}</span>
-                  </div>
-                  <div className="metric-bar-container">
-                    <span className="bar-label">Now</span>
-                    <div className="metric-bar new">
-                      <div 
-                        className="metric-fill new" 
-                        style={{ width: `${progressData.latestMetrics.pores ?? 0}%` }}
-                      ></div>
-                    </div>
-                    <span className="bar-value">{progressData.latestMetrics.pores != null ? `${progressData.latestMetrics.pores}%` : '—'}</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <div className="analysis-timeline">
-            <h3>Analysis History</h3>
-            <div className="timeline">
-              {filteredHistory.map((analysis, index) => (
-                <div key={analysis.id || index} className="timeline-item">
-                  <div className="timeline-marker">
-                    <div className="marker-dot"></div>
-                    {index < filteredHistory.length - 1 && <div className="marker-line"></div>}
-                  </div>
-                  <div className="timeline-content">
-                    <div className="timeline-date">{formatDate(analysis.timestamp)}</div>
-                    {analysis.image && (
-                      <div className="timeline-photo">
-                        <img src={analysis.image} alt={`Analysis ${index + 1}`} />
-                      </div>
-                    )}
-                    <div className="timeline-data">
-                      {typeof analysis.analysis?.skinHealth === 'number' && (
-                        <div className="timeline-health">
-                          Overall Health: <span className="health-score">{analysis.analysis.skinHealth}%</span>
-                        </div>
-                      )}
-                      {analysis.analysis?.skinType && (
-                        <div className="timeline-type">
-                          Skin Type: <span className="skin-type">{analysis.analysis.skinType}</span>
-                        </div>
-                      )}
-                      {Array.isArray(analysis.analysis?.concerns) && analysis.analysis.concerns.length > 0 && (
-                        <div className="timeline-concerns">
-                          <strong>Main Concerns:</strong>
-                          <ul>
-                            {analysis.analysis.concerns.slice(0, 2).map((concern, i) => (
-                              <li key={i}>{concern}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+          {/* Overall Skin Health Trend */}
+          <div className="metrics-comparison" style={{ marginBottom: '2rem' }}>
+            <h3>Overall Skin Health Trend</h3>
+            <div style={{ width: '100%', height: 260 }}>
+              <ResponsiveContainer>
+                <AreaChart data={chartSeries} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorHealth" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ff6b35" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#ff6b35" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="skinHealth" stroke="#ff6b35" fill="url(#colorHealth)" name="Skin Health" />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </>
       )}
+
+      {/* Metric Trends (All metrics with >= 2 points) */}
+      {trendMetricKeys.length > 0 && (
+        <div className="metrics-comparison">
+          <h3>Metric Trends</h3>
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <LineChart data={chartSeries} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f3f3" />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                {trendMetricKeys.map((key) => (
+                  <Line key={key} type="monotone" dataKey={key} stroke={getColorForMetric(key)} name={prettyMetricName(key)} strokeWidth={2} dot={false} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Before vs Now Comparisons for all metrics with >= 2 points */}
+      {progressData && trendMetricKeys.length > 0 && (
+        <div className="metrics-comparison">
+          <h3>Metric Improvements</h3>
+          <div className="metrics-grid">
+            {trendMetricKeys.map((key) => {
+              const before = progressData.beforeMetrics[key];
+              const now = progressData.nowMetrics[key];
+              const delta = progressData.improvements[key];
+              return (
+                <div className="metric-comparison" key={key}>
+                  <div className="metric-header">
+                    <span className="metric-name">{prettyMetricName(key)}</span>
+                    <span className="metric-change" style={{ color: getImprovementColor(key, delta) }}>
+                      {getImprovementIcon(key, delta)} {improvementLabel(key, delta)}
+                    </span>
+                  </div>
+                  <div className="metric-bars">
+                    <div className="metric-bar-container">
+                      <span className="bar-label">Before</span>
+                      <div className="metric-bar old">
+                        <div 
+                          className="metric-fill old" 
+                          style={{ width: `${before ?? 0}%`, background: `linear-gradient(90deg, ${getColorForMetric(key)}33, ${getColorForMetric(key)}66)` }}
+                        ></div>
+                      </div>
+                      <span className="bar-value">{before != null ? `${before}%` : '—'}</span>
+                    </div>
+                    <div className="metric-bar-container">
+                      <span className="bar-label">Now</span>
+                      <div className="metric-bar new">
+                        <div 
+                          className="metric-fill new" 
+                          style={{ width: `${now ?? 0}%`, background: `linear-gradient(90deg, ${getColorForMetric(key)}, #ff6b35)` }}
+                        ></div>
+                      </div>
+                      <span className="bar-value">{now != null ? `${now}%` : '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Analysis History */}
+      <div className="analysis-timeline">
+        <h3>Analysis History</h3>
+        <div className="timeline">
+          {filteredHistory.map((analysis, index) => (
+            <div key={analysis.id || index} className="timeline-item">
+              <div className="timeline-marker">
+                <div className="marker-dot"></div>
+                {index < filteredHistory.length - 1 && <div className="marker-line"></div>}
+              </div>
+              <div className="timeline-content">
+                <div className="timeline-date">{formatDate(analysis.timestamp)}</div>
+                {analysis.image && (
+                  <div className="timeline-photo">
+                    <img src={analysis.image} alt={`Analysis ${index + 1}`} />
+                  </div>
+                )}
+                <div className="timeline-data">
+                  {typeof analysis.analysis?.skinHealth === 'number' && (
+                    <div className="timeline-health">
+                      Overall Health: <span className="health-score">{analysis.analysis.skinHealth}%</span>
+                    </div>
+                  )}
+                  {analysis.analysis?.skinType && (
+                    <div className="timeline-type">
+                      Skin Type: <span className="skin-type">{analysis.analysis.skinType}</span>
+                    </div>
+                  )}
+                  {Array.isArray(analysis.analysis?.concerns) && analysis.analysis.concerns.length > 0 && (
+                    <div className="timeline-concerns">
+                      <strong>Main Concerns:</strong>
+                      <ul>
+                        {analysis.analysis.concerns.slice(0, 2).map((concern, i) => (
+                          <li key={i}>{concern}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* Compact metrics snapshot - only metrics with numeric score on this entry */}
+                  {analysis.analysis?.metrics && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      {Object.entries(analysis.analysis.metrics)
+                        .filter(([k, v]) => typeof v?.score === 'number')
+                        .slice(0, 8)
+                        .map(([key, v]) => {
+                          const val = toPercent(v.score);
+                          return (
+                            <span key={key} style={{ background: 'var(--peach-light)', padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                              {prettyMetricName(key)}: {val != null ? `${val}%` : '—'}
+                            </span>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {filteredHistory.length < 2 && (
         <div className="insufficient-data">
