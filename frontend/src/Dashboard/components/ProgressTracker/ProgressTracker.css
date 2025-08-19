@@ -24,7 +24,7 @@
 .timeframe-selector {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   background: white;
   padding: 0.5rem;
   border-radius: 12px;
@@ -54,6 +54,31 @@
   background: var(--peach-primary);
   color: white;
   box-shadow: 0 2px 4px rgba(255, 183, 158, 0.3);
+}
+
+.section-toggle {
+  display: inline-flex;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 0.25rem;
+  gap: 0.25rem;
+  margin: 0 auto 1.5rem auto;
+}
+
+.section-toggle .toggle-btn {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.section-toggle .toggle-btn.active {
+  background: var(--peach-primary);
+  color: #fff;
 }
 
 .progress-overview {
@@ -116,9 +141,19 @@
   font-weight: 600;
 }
 
+.chart-container {
+  width: 100%;
+  height: 320px;
+}
+
+.chart-container.chart-health {
+  height: 260px;
+}
+
 .metrics-grid {
   display: grid;
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
 }
 
 .metric-comparison {
@@ -132,18 +167,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   margin-bottom: 1rem;
 }
 
 .metric-name {
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 1.1rem;
+  font-size: 1.05rem;
 }
 
 .metric-change {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.95rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -422,6 +458,11 @@
     padding: 0.6rem 1rem;
     font-size: 0.9rem;
   }
+
+  .section-toggle {
+    width: 100%;
+    justify-content: center;
+  }
   
   .overview-card,
   .metrics-comparison,
@@ -489,5 +530,13 @@
   
   .metric-change {
     align-self: flex-end;
+  }
+
+  .chart-container {
+    height: 240px;
+  }
+
+  .chart-container.chart-health {
+    height: 220px;
   }
 }

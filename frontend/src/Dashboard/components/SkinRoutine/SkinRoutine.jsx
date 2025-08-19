@@ -162,15 +162,44 @@ const SkinRoutine = ({ latestAnalysis }) => {
     );
   }
 
+  // Helper to render foods category sections
+  const renderFoodsCategory = (label, items = []) => {
+    if (!Array.isArray(items) || items.length === 0) return null;
+    return (
+      <div className="meal-section">
+        <h4><Apple size={18} className="inline-icon" /> {label}</h4>
+        {items.map((meal, index) => (
+          <div key={index} className="meal-item">
+            <h5>{meal.food}</h5>
+            {meal.benefits && <p>{meal.benefits}</p>}
+            <div className="nutrients">
+              {(meal.nutrients || []).map((nutrient, idx) => (
+                <span key={idx} className="nutrient">{nutrient}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const foodsToEat = dietPlan?.foodsToEat || {};
+
   return (
     <div className="skin-routine">
       <div className="routine-header">
         <h2><Sparkles size={24} className="inline-icon" /> Your Personalized Care Plan</h2>
         <p>AI-powered recommendations based on your latest skin analysis</p>
-        <div>
-          <button className="generate-btn" onClick={fetchRoutine} disabled={isGenerating}>
-            {isGenerating ? 'Generating…' : 'Generate New Routine'}
-          </button>
+        <div className="header-actions">
+          {activeTab === 'routine' ? (
+            <button className="generate-btn" onClick={fetchRoutine} disabled={isGenerating}>
+              {isGenerating ? 'Generating…' : 'Generate New Routine'}
+            </button>
+          ) : (
+            <button className="generate-btn" onClick={() => fetchDiet(true)} disabled={isGenerating}>
+              {isGenerating ? 'Generating…' : 'Generate New Diet Plan'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -333,70 +362,25 @@ const SkinRoutine = ({ latestAnalysis }) => {
               <div className="diet-overview">
                 <h3>Your Personalized Nutrition Plan</h3>
                 {Array.isArray(dietPlan.goals) && dietPlan.goals.length > 0 && (
-                  <p>Targeted nutrition to address: {dietPlan.goals.join(', ')}</p>
+                  <>
+                    <p>Targeted nutrition to address:</p>
+                    <div className="goals-chips">
+                      {dietPlan.goals.map((g, i) => (
+                        <span key={i} className="goal-chip">{g}</span>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
 
               <div className="daily-meals">
-                <div className="meal-section">
-                  <h4><Sunrise size={18} className="inline-icon" /> Breakfast</h4>
-                  {(dietPlan.dailyPlan?.breakfast || []).map((meal, index) => (
-                    <div key={index} className="meal-item">
-                      <h5>{meal.food}</h5>
-                      <p>{meal.benefits}</p>
-                      <div className="nutrients">
-                        {(meal.nutrients || []).map((nutrient, idx) => (
-                          <span key={idx} className="nutrient">{nutrient}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="meal-section">
-                  <h4><Sun size={18} className="inline-icon" /> Lunch</h4>
-                  {(dietPlan.dailyPlan?.lunch || []).map((meal, index) => (
-                    <div key={index} className="meal-item">
-                      <h5>{meal.food}</h5>
-                      <p>{meal.benefits}</p>
-                      <div className="nutrients">
-                        {(meal.nutrients || []).map((nutrient, idx) => (
-                          <span key={idx} className="nutrient">{nutrient}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="meal-section">
-                  <h4><Moon size={18} className="inline-icon" /> Dinner</h4>
-                  {(dietPlan.dailyPlan?.dinner || []).map((meal, index) => (
-                    <div key={index} className="meal-item">
-                      <h5>{meal.food}</h5>
-                      <p>{meal.benefits}</p>
-                      <div className="nutrients">
-                        {(meal.nutrients || []).map((nutrient, idx) => (
-                          <span key={idx} className="nutrient">{nutrient}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="meal-section">
-                  <h4><Apple size={18} className="inline-icon" /> Snacks</h4>
-                  {(dietPlan.dailyPlan?.snacks || []).map((meal, index) => (
-                    <div key={index} className="meal-item">
-                      <h5>{meal.food}</h5>
-                      <p>{meal.benefits}</p>
-                      <div className="nutrients">
-                        {(meal.nutrients || []).map((nutrient, idx) => (
-                          <span key={idx} className="nutrient">{nutrient}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {renderFoodsCategory('Grains', foodsToEat.grains)}
+                {renderFoodsCategory('Vegetables', foodsToEat.vegetables)}
+                {renderFoodsCategory('Fruits', foodsToEat.fruits)}
+                {renderFoodsCategory('Proteins', foodsToEat.proteins)}
+                {renderFoodsCategory('Dals & Legumes', foodsToEat.dals_legumes)}
+                {renderFoodsCategory('Spices & Herbs', foodsToEat.spices_herbs)}
+                {renderFoodsCategory('Dairy Alternatives', foodsToEat.dairy_alternatives)}
               </div>
 
               <div className="additional-info">
@@ -426,9 +410,9 @@ const SkinRoutine = ({ latestAnalysis }) => {
                 </div>
 
                 <div className="info-section">
-                  <h4><X size={18} className="inline-icon" /> Foods to Limit</h4>
+                  <h4><X size={18} className="inline-icon" /> Foods to Avoid</h4>
                   <ul className="avoid-list">
-                    {(dietPlan.avoid || []).map((item, index) => (
+                    {(dietPlan.foodsToAvoid || []).map((item, index) => (
                       <li key={index}>{item}</li>
                     ))}
                   </ul>
@@ -437,16 +421,22 @@ const SkinRoutine = ({ latestAnalysis }) => {
                 <div className="info-section">
                   <h4><Star size={18} className="inline-icon" /> Skin Superfoods</h4>
                   <div className="superfoods">
-                    {(dietPlan.skinFoods || []).map((food, index) => (
+                    {(dietPlan.skinBeneficialFoods || []).map((food, index) => (
                       <div key={index} className="superfood-item">{food}</div>
                     ))}
                   </div>
                 </div>
-                <div style={{ marginTop: '1rem' }}>
-                  <button className="generate-btn" onClick={() => fetchDiet(true)} disabled={isGenerating}>
-                    {isGenerating ? 'Generating…' : 'Generate New Diet Plan'}
-                  </button>
+
+                <div className="info-section">
+                  <h4><Lightbulb size={18} className="inline-icon" /> Cooking Tips</h4>
+                  <ul className="tips-list">
+                    {(dietPlan.cookingTips || []).map((tip, index) => (
+                      <li key={index}>{tip}</li>
+                    ))}
+                  </ul>
                 </div>
+
+                
               </div>
             </div>
           )}

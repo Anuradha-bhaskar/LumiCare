@@ -1,54 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useUser } from '@clerk/clerk-react';
-import { User, Edit3, Save, X, BarChart3, TrendingUp, TrendingDown, Calendar, Target, Search, FileText } from 'lucide-react';
+import { User, BarChart3, TrendingUp, TrendingDown, Calendar, Target, Search, FileText } from 'lucide-react';
 import './ProfileSection.css';
 
-const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
+const ProfileSection = ({ analysisHistory, userProfile /* onProfileUpdate (unused) */ }) => {
   const { user } = useUser();
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    fullName: userProfile?.fullName || '',
-    age: userProfile?.age || '',
-    gender: userProfile?.gender || '',
-    skinGoals: userProfile?.skinGoals || [],
-    skinConcerns: userProfile?.skinConcerns || [],
-    allergies: userProfile?.allergies || [],
-    currentProducts: userProfile?.currentProducts || []
-  });
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleArrayInputChange = (field, value) => {
-    const items = value.split(',').map(item => item.trim()).filter(item => item);
-    setEditForm(prev => ({
-      ...prev,
-      [field]: items
-    }));
-  };
-
-  const handleSave = () => {
-    onProfileUpdate(editForm);
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setEditForm({
-      fullName: userProfile?.fullName || '',
-      age: userProfile?.age || '',
-      gender: userProfile?.gender || '',
-      skinGoals: userProfile?.skinGoals || [],
-      skinConcerns: userProfile?.skinConcerns || [],
-      allergies: userProfile?.allergies || [],
-      currentProducts: userProfile?.currentProducts || []
-    });
-    setIsEditing(false);
-  };
 
   const getAnalysisStats = () => {
     if (!analysisHistory || analysisHistory.length === 0) {
@@ -119,116 +75,14 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
             </div>
             
             <div className="profile-details">
-              {!isEditing ? (
-                <>
-                  <h3>{userProfile?.fullName || 'Complete Your Profile'}</h3>
-                  <div className="profile-meta">
-                    {userProfile?.age && <span>Age: {userProfile.age}</span>}
-                    {userProfile?.gender && <span>Gender: {userProfile.gender}</span>}
-                  </div>
-                  <div className="profile-email">
-                    {user?.primaryEmailAddress?.emailAddress}
-                  </div>
-                  <button 
-                    className="edit-profile-btn"
-                    onClick={() => setIsEditing(true)}
-                  >
-                    <Edit3 size={16} className="inline-icon" /> Edit Profile
-                  </button>
-                </>
-              ) : (
-                <div className="edit-form">
-                  <div className="form-group">
-                    <label>Full Name</label>
-                    <input
-                      type="text"
-                      name="fullName"
-                      value={editForm.fullName}
-                      onChange={handleInputChange}
-                      placeholder="Enter your full name"
-                    />
-                  </div>
-                  
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Age</label>
-                      <input
-                        type="number"
-                        name="age"
-                        value={editForm.age}
-                        onChange={handleInputChange}
-                        placeholder="Age"
-                        min="13"
-                        max="100"
-                      />
-                    </div>
-                    
-                    <div className="form-group">
-                      <label>Gender</label>
-                      <select
-                        name="gender"
-                        value={editForm.gender}
-                        onChange={handleInputChange}
-                      >
-                        <option value="">Select Gender</option>
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Non-binary">Non-binary</option>
-                        <option value="Prefer not to say">Prefer not to say</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Skin Goals</label>
-                    <input
-                      type="text"
-                      value={editForm.skinGoals.join(', ')}
-                      onChange={(e) => handleArrayInputChange('skinGoals', e.target.value)}
-                      placeholder="e.g., Clear skin, Anti-aging, Hydration (separate with commas)"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Skin Concerns</label>
-                    <input
-                      type="text"
-                      value={editForm.skinConcerns.join(', ')}
-                      onChange={(e) => handleArrayInputChange('skinConcerns', e.target.value)}
-                      placeholder="e.g., Acne, Dark spots, Wrinkles (separate with commas)"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Known Allergies</label>
-                    <input
-                      type="text"
-                      value={editForm.allergies.join(', ')}
-                      onChange={(e) => handleArrayInputChange('allergies', e.target.value)}
-                      placeholder="e.g., Fragrances, Sulfates, Parabens (separate with commas)"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Current Products</label>
-                    <input
-                      type="text"
-                      value={editForm.currentProducts.join(', ')}
-                      onChange={(e) => handleArrayInputChange('currentProducts', e.target.value)}
-                      placeholder="e.g., CeraVe Cleanser, Neutrogena Moisturizer (separate with commas)"
-                    />
-                  </div>
-
-                  <div className="form-actions">
-                    <button className="save-btn" onClick={handleSave}>
-                      <Save size={16} className="inline-icon" /> Save Changes
-                    </button>
-                    <button className="cancel-btn" onClick={handleCancel}>
-                      <X size={16} className="inline-icon" /> Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
+              <h3>{userProfile?.fullName || 'Complete Your Profile'}</h3>
+              <div className="profile-meta">
+                {userProfile?.age && <span>Age: {userProfile.age}</span>}
+                {userProfile?.gender && <span>Gender: {userProfile.gender}</span>}
+              </div>
+              <div className="profile-email">
+                {user?.primaryEmailAddress?.emailAddress}
+              </div>
             </div>
           </div>
         </div>
@@ -298,56 +152,6 @@ const ProfileSection = ({ analysisHistory, userProfile, onProfileUpdate }) => {
             </div>
           )}
         </div>
-
-        {userProfile && (
-          <div className="profile-preferences">
-            <h3><Target size={20} className="inline-icon" /> Your Skincare Profile</h3>
-            
-            {userProfile.skinGoals && userProfile.skinGoals.length > 0 && (
-              <div className="preference-section">
-                <h4>Skin Goals</h4>
-                <div className="tags-list">
-                  {userProfile.skinGoals.map((goal, index) => (
-                    <span key={index} className="tag goal-tag">{goal}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {userProfile.skinConcerns && userProfile.skinConcerns.length > 0 && (
-              <div className="preference-section">
-                <h4>Current Concerns</h4>
-                <div className="tags-list">
-                  {userProfile.skinConcerns.map((concern, index) => (
-                    <span key={index} className="tag concern-tag">{concern}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {userProfile.allergies && userProfile.allergies.length > 0 && (
-              <div className="preference-section">
-                <h4>Allergies & Sensitivities</h4>
-                <div className="tags-list">
-                  {userProfile.allergies.map((allergy, index) => (
-                    <span key={index} className="tag allergy-tag">{allergy}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {userProfile.currentProducts && userProfile.currentProducts.length > 0 && (
-              <div className="preference-section">
-                <h4>Current Products</h4>
-                <div className="tags-list">
-                  {userProfile.currentProducts.map((product, index) => (
-                    <span key={index} className="tag product-tag">{product}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {(!analysisHistory || analysisHistory.length === 0) && (
           <div className="no-data-card">

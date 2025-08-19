@@ -504,7 +504,7 @@ const SkinAnalysis = ({ onAnalysisComplete, clerkUserId }) => {
                     <ul className="stat-list">
                       <StatItem label="Count" value={analysisResult.metrics.pores?.count} digits={0} />
                       <StatItem label="Avg Size" value={analysisResult.metrics.pores?.avg_size} />
-                      <StatItem label="Density (per 100x100)" value={analysisResult.metrics.pores?.density} />
+                      <StatItem label="Density" value={analysisResult.metrics.pores?.density} />
                     </ul>
                   </div>
                   )}
