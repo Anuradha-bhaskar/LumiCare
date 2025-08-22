@@ -54,7 +54,7 @@ const LandingPage = () => {
 
           <div className="hero-image">
             <img
-              src="https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=600&q=80"
+              src="https://images.pexels.com/photos/3762879/pexels-photo-3762879.jpeg?auto=compress&cs=tinysrgb&w=600&h=800&dpr=2"
               alt="Skincare model"
             />
           </div>

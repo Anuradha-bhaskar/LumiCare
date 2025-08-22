@@ -1,6 +1,7 @@
 import React from 'react';
 import { SignOutButton } from '@clerk/clerk-react';
-import { Sparkles, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { Link } from "react-router-dom";
 import './Header.css';
 
 const Header = ({ user, userProfile }) => {
@@ -21,7 +22,9 @@ const Header = ({ user, userProfile }) => {
     <header className="dashboard-header">
       <div className="header-content">
         <div className="header-left">
-          <h1 className="app-title">LumiCare</h1>
+          <Link to="/" className="logo-link">
+            <h1 className="app-title">LumiCare</h1>
+          </Link>
           <div className="greeting">
             <span className="greeting-text">
               {getGreeting()}, {getUserName()}! 

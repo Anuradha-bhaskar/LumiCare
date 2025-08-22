@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Droplets, Calendar, Apple, Lightbulb, Sunrise, Moon, CalendarDays, Sun, Sunset, Pill, DropletIcon, X, Star, Info } from 'lucide-react';
+import { Sparkles, Droplets, Calendar, Apple, Lightbulb, Sunrise, Moon, CalendarDays, Sun, Sunset, Pill, DropletIcon, X, Star, Info, CheckCircle2, AlertTriangle, FlaskConical } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 import './SkinRoutine.css';
 
@@ -111,29 +111,36 @@ const SkinRoutine = ({ latestAnalysis }) => {
 
   const IngredientDetails = ({ ingredient, onClose }) => {
     if (!ingredient) return null;
+    const titleId = 'ingredient-title';
     return (
-      <div className="ingredient-modal">
-        <div className="ingredient-card">
-          <button className="close-btn" onClick={onClose}><X size={18} /></button>
-          <h3>{ingredient.name}</h3>
+      <div className="ingredient-modal" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+        <div className="ingredient-card" onClick={(e) => e.stopPropagation()}>
+          <button className="close-btn" onClick={onClose} aria-label="Close"><X size={18} /></button>
+          <div className="ingredient-header">
+            <div className="ingredient-icon"><Info size={18} /></div>
+            <h3 id={titleId} className="ingredient-title">{ingredient.name}</h3>
+          </div>
           {ingredient.benefits && <p className="benefits">{ingredient.benefits}</p>}
+
           {Array.isArray(ingredient.pros) && ingredient.pros.length > 0 && (
-            <div className="pros">
-              <h4>Pros</h4>
+            <div className="ingredient-section">
+              <h4 className="section-title"><CheckCircle2 size={16} className="icon" /> Pros</h4>
               <ul>
                 {ingredient.pros.map((p, i) => <li key={i}>{p}</li>)}
               </ul>
             </div>
           )}
+
           {ingredient.usage && (
-            <div className="usage">
-              <h4>How to use</h4>
+            <div className="ingredient-section">
+              <h4 className="section-title"><FlaskConical size={16} className="icon" /> How to use</h4>
               <p>{ingredient.usage}</p>
             </div>
           )}
+
           {Array.isArray(ingredient.warnings) && ingredient.warnings.length > 0 && (
-            <div className="warnings">
-              <h4>Warnings</h4>
+            <div className="ingredient-section">
+              <h4 className="section-title warning"><AlertTriangle size={16} className="icon" /> Warnings</h4>
               <ul>
                 {ingredient.warnings.map((w, i) => <li key={i}>{w}</li>)}
               </ul>

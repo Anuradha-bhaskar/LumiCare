@@ -41,7 +41,7 @@ class SkinComprehensiveAnalyzer:
             Please provide a JSON response with exactly these fields:
             {{
                 "skinType": "one of: Oily, Dry, Combination, Normal",
-                "concerns": ["list of top 3 concerns"],
+                "concerns": ["list of up to 3 top concerns based on highest severity. If no major concerns, return ['No major concerns']"],
                 "skinHealth": number from 0-100,
                 "recommendations": ["4-5 short specific actionable recommendations"],
                 "priorityActions": ["immediate actions to take"]

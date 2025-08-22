@@ -14,7 +14,11 @@ def init_mongo(app: FastAPI):
     @app.on_event("startup")
     async def startup():
         global client
-        client = AsyncIOMotorClient(MONGO_URL)  
+        client = AsyncIOMotorClient(
+            MONGO_URL,
+            tls=True,
+            tlsAllowInvalidCertificates=False,
+        )
         app.state.db = client[MONGO_DB_NAME]
         print("✅ MongoDB connected:", MONGO_DB_NAME)
 

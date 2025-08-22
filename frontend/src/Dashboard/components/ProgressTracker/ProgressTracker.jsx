@@ -88,15 +88,11 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
     });
   }, [filteredHistory, allMetricKeys]);
 
-  // Metrics that have at least two numeric points -> for trend chart and improvement
+  // Metrics that have at least one numeric point -> for trend chart display
   const trendMetricKeys = useMemo(() => {
     return numericMetricKeys.filter((k) => {
-      let count = 0;
-      for (const a of filteredHistory) {
-        if (typeof a?.analysis?.metrics?.[k]?.score === 'number') count++;
-        if (count >= 2) return true;
-      }
-      return false;
+      // Include any metric that has at least one numeric value
+      return filteredHistory.some(a => typeof a?.analysis?.metrics?.[k]?.score === 'number');
     });
   }, [filteredHistory, numericMetricKeys]);
 
@@ -115,23 +111,33 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
   };
   const isHigherBetter = (key) => higherIsBetter[key] === true;
 
-  // Build chronological series
-  const chronological = useMemo(() => filteredHistory.slice().reverse(), [filteredHistory]);
+  // Build chronological series - ensure proper sorting by timestamp
+  const chronological = useMemo(() => {
+    return filteredHistory.slice().sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  }, [filteredHistory]);
 
   const progressData = useMemo(() => {
-    if (chronological.length < 2) return null;
+    if (chronological.length < 1) return null;
 
-    // Overall skin health earliest/latest
+    // Overall skin health earliest/latest - ensure proper percentage conversion
     const overallBefore = (() => {
       for (const a of chronological) {
-        if (typeof a?.analysis?.skinHealth === 'number') return a.analysis.skinHealth;
+        const health = a?.analysis?.skinHealth;
+        if (typeof health === 'number') {
+          // Convert to percentage if needed (0-1 range to 0-100)
+          return health <= 1 ? Math.round(health * 100) : Math.round(health);
+        }
       }
       return null;
     })();
     const overallNow = (() => {
       for (let i = chronological.length - 1; i >= 0; i--) {
         const a = chronological[i];
-        if (typeof a?.analysis?.skinHealth === 'number') return a.analysis.skinHealth;
+        const health = a?.analysis?.skinHealth;
+        if (typeof health === 'number') {
+          // Convert to percentage if needed (0-1 range to 0-100)
+          return health <= 1 ? Math.round(health * 100) : Math.round(health);
+        }
       }
       return null;
     })();
@@ -176,16 +182,24 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
 
   // Chart series: chronological order and dynamic metric keys
   const chartSeries = useMemo(() => {
-    return chronological.map((a) => {
+    console.log('Building chart series from chronological data:', chronological);
+    console.log('Available trend metric keys:', trendMetricKeys);
+    
+    const allSeries = chronological.map((a) => {
       const row = {
         date: new Date(a.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        fullDate: a.timestamp,
         skinHealth: typeof a?.analysis?.skinHealth === 'number' ? a.analysis.skinHealth : null,
       };
       trendMetricKeys.forEach((k) => {
         row[k] = getMetricPercent(a, k);
       });
+      console.log('Chart row for', row.date, ':', row);
       return row;
     });
+
+    console.log('Final chart series:', allSeries);
+    return allSeries;
   }, [chronological, trendMetricKeys]);
 
   const colorPalette = ['#4caf50', '#ff9800', '#9c27b0', '#03a9f4', '#f44336', '#795548', '#607d8b', '#8bc34a', '#ff5722', '#3f51b5'];

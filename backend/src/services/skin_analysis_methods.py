@@ -99,38 +99,55 @@ class SkinAnalysisMethods:
     def analyze_wrinkles(self, face_region: np.ndarray) -> Dict[str, Any]:
         try:
             gray = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)
-            blurred = cv2.GaussianBlur(gray, (7, 7), 2.0)
             
-            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+            # Apply stronger Gaussian blur to reduce noise
+            blurred = cv2.GaussianBlur(gray, (9, 9), 2.5)
+            
+            # Reduce the aggressiveness of morphological operations
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  # Smaller kernel
             tophat = cv2.morphologyEx(blurred, cv2.MORPH_TOPHAT, kernel)
             blackhat = cv2.morphologyEx(blurred, cv2.MORPH_BLACKHAT, kernel)
             enhanced = cv2.add(blurred, tophat)
             enhanced = cv2.subtract(enhanced, blackhat)
             
-            clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+            # Less aggressive CLAHE
+            clahe = cv2.createCLAHE(clipLimit=1.0, tileGridSize=(8, 8))  # Reduced clipLimit
             enhanced = clahe.apply(enhanced)
             
-            kernel_h = np.array([[-1, -1, -1], [2, 2, 2], [-1, -1, -1]], dtype=np.float32)
-            kernel_v = np.array([[-1, 2, -1], [-1, 2, -1], [-1, 2, -1]], dtype=np.float32)
+            # Apply additional smoothing after enhancement
+            enhanced = cv2.GaussianBlur(enhanced, (3, 3), 1.0)
+            
+            # More conservative edge detection kernels
+            kernel_h = np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=np.float32) / 4.0
+            kernel_v = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=np.float32) / 4.0
             
             resp_h = cv2.filter2D(enhanced, cv2.CV_32F, kernel_h)
             resp_v = cv2.filter2D(enhanced, cv2.CV_32F, kernel_v)
             
-            combined_response = np.maximum(np.abs(resp_h), np.abs(resp_v))
+            # Calculate magnitude of gradients
+            combined_response = np.sqrt(resp_h**2 + resp_v**2)
             combined_response = cv2.normalize(combined_response, None, 0, 255, cv2.NORM_MINMAX)
             combined_response = combined_response.astype(np.uint8)
             
-            wrinkle_mask = cv2.adaptiveThreshold(combined_response, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 15, 5)
+            # More conservative thresholding
+            wrinkle_mask = cv2.adaptiveThreshold(
+                combined_response, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                cv2.THRESH_BINARY, 21, 8  # Larger block size, higher C value
+            )
             
-            kernel_clean = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (4, 4))
+            # More aggressive noise removal
+            kernel_clean = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (6, 6))  # Larger kernel
             wrinkle_mask = cv2.morphologyEx(wrinkle_mask, cv2.MORPH_OPEN, kernel_clean)
+            wrinkle_mask = cv2.morphologyEx(wrinkle_mask, cv2.MORPH_CLOSE, kernel_clean)
             
+            # Find contours
             contours, _ = cv2.findContours(wrinkle_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
+            # More stringent filtering for wrinkle contours
             wrinkle_contours = []
             for contour in contours:
                 perimeter = cv2.arcLength(contour, False)
-                if perimeter < 30:
+                if perimeter < 50:  # Increased minimum perimeter
                     continue
                     
                 rect = cv2.minAreaRect(contour)
@@ -144,25 +161,37 @@ class SkinAnalysisMethods:
                 hull_area = cv2.contourArea(hull)
                 solidity = area / hull_area if hull_area > 0 else 0
                 
-                if aspect_ratio > 5.0 and solidity > 0.5 and perimeter > 40:
+                # More restrictive criteria
+                if aspect_ratio > 8.0 and solidity > 0.6 and perimeter > 80:  # Higher thresholds
                     wrinkle_contours.append(contour)
             
+            # Calculate density based on actual wrinkle pixels, not all edge pixels
             total_pixels = wrinkle_mask.shape[0] * wrinkle_mask.shape[1]
-            edge_pixels = np.sum(wrinkle_mask > 0)
-            wrinkle_density = edge_pixels / total_pixels
             
-            long_lines = [c for c in wrinkle_contours if cv2.arcLength(c, False) > 50]
+            # Only count pixels that belong to valid wrinkle contours
+            wrinkle_pixel_count = 0
+            if wrinkle_contours:
+                temp_mask = np.zeros_like(wrinkle_mask)
+                cv2.drawContours(temp_mask, wrinkle_contours, -1, 255, thickness=cv2.FILLED)
+                wrinkle_pixel_count = np.sum(temp_mask > 0)
+            
+            wrinkle_density = wrinkle_pixel_count / total_pixels
+            
+            # Count only significant wrinkles
+            long_lines = [c for c in wrinkle_contours if cv2.arcLength(c, False) > 100]  # Increased threshold
             line_score = len(long_lines) / max(len(wrinkle_contours), 1) if wrinkle_contours else 0
             
-            wrinkle_score = (wrinkle_density * 100) * 0.7 + line_score * 0.3
+            # Adjusted scoring with lower weights
+            wrinkle_score = (wrinkle_density * 0.5) + (line_score * 0.3) + (len(wrinkle_contours) / 100.0 * 0.2)
             
-            if wrinkle_score < 0.02:
+            # Much more conservative thresholds
+            if wrinkle_score < 0.005:          # Less than 0.5% 
                 severity = "None"
-            elif wrinkle_score < 0.08:
+            elif wrinkle_score < 0.02:         # Less than 2%
                 severity = "Fine Lines"
-            elif wrinkle_score < 0.25:
+            elif wrinkle_score < 0.05:         # Less than 5%
                 severity = "Moderate"
-            else:
+            else:                              # 5%+ 
                 severity = "Pronounced"
             
             return {
@@ -176,7 +205,7 @@ class SkinAnalysisMethods:
         except Exception as e:
             logger.error(f"Error analyzing wrinkles: {e}")
             return {"severity": "Error", "score": 0.0, "density": 0.0, "line_count": 0, "description": "Error in wrinkle analysis"}
-
+        
     def analyze_pores(self, face_region: np.ndarray) -> Dict[str, Any]:
         try:
             gray = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)

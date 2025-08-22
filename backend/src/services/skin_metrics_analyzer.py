@@ -14,112 +14,97 @@ class SkinMetricsAnalyzer:
             gray = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)
             hsv = cv2.cvtColor(face_region, cv2.COLOR_BGR2HSV)
             
-            # More specific color ranges for inflamed acne (avoiding deep reds of bindis/moles)
-            # Focus on pinkish-red inflammation rather than deep reds
-            lower_red1 = np.array([0, 30, 80])    # Lighter, more inflamed looking reds
-            upper_red1 = np.array([10, 180, 255])
-            lower_red2 = np.array([170, 30, 80])
-            upper_red2 = np.array([180, 180, 255])
+            # More restrictive HSV ranges for red/pink acne spots
+            # Increased saturation threshold to avoid detecting normal skin tones
+            lower_red1 = np.array([0, 70, 50])      # Increased saturation from 40 to 70
+            upper_red1 = np.array([10, 255, 255])  # Narrowed hue range from 15 to 10
+            lower_red2 = np.array([170, 70, 50])   # Increased saturation, narrowed hue range
+            upper_red2 = np.array([180, 255, 255])
             
-            # Additional pink range for lighter acne
-            lower_pink = np.array([160, 20, 100])
-            upper_pink = np.array([180, 100, 255])
-            
+            # Create masks for red regions
             mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
             mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-            mask3 = cv2.inRange(hsv, lower_pink, upper_pink)
+            red_mask = cv2.bitwise_or(mask1, mask2)
             
-            color_mask = cv2.bitwise_or(cv2.bitwise_or(mask1, mask2), mask3)
-            
-            # Enhanced texture analysis to detect raised/irregular surfaces
-            gaussian = cv2.GaussianBlur(gray, (3, 3), 0)
-            
-            # Multiple edge detection methods
+            # Enhanced texture analysis with higher threshold
+            gaussian = cv2.GaussianBlur(gray, (5, 5), 0)
             laplacian = cv2.Laplacian(gaussian, cv2.CV_64F)
-            sobel_x = cv2.Sobel(gaussian, cv2.CV_64F, 1, 0, ksize=3)
-            sobel_y = cv2.Sobel(gaussian, cv2.CV_64F, 0, 1, ksize=3)
+            texture_mask = np.uint8(np.absolute(laplacian))
             
-            # Combine edge responses
-            edges = np.sqrt(sobel_x**2 + sobel_y**2)
-            texture_mask = np.uint8(np.absolute(laplacian) + edges/2)
+            # Apply higher threshold for texture mask to reduce false positives
+            _, texture_mask = cv2.threshold(texture_mask, 50, 255, cv2.THRESH_BINARY)
             
-            # Threshold for texture (acne has more irregular texture than smooth bindis/moles)
-            _, texture_binary = cv2.threshold(texture_mask, 20, 255, cv2.THRESH_BINARY)
+            # Combine red mask with texture mask
+            combined_mask = cv2.bitwise_and(red_mask, texture_mask)
             
-            # Combine color and texture information
-            combined_mask = cv2.bitwise_and(color_mask, texture_binary)
+            # More aggressive morphological operations to clean up noise
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))  # Larger kernel
+            combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel)
+            combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN, kernel)
             
-            # Morphological operations to clean up
-            kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
-            kernel_medium = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-            
-            # Remove noise
-            combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_OPEN, kernel_small)
-            # Fill small gaps
-            combined_mask = cv2.morphologyEx(combined_mask, cv2.MORPH_CLOSE, kernel_medium)
+            # Additional erosion to remove small noise
+            kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+            combined_mask = cv2.erode(combined_mask, kernel_small, iterations=1)
             
             # Find contours
             contours, _ = cv2.findContours(combined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
             acne_spots: List[Dict[str, int]] = []
-            
             for contour in contours:
                 area = cv2.contourArea(contour)
-                
-                # Refined size filtering (acne is typically smaller than bindis/large moles)
-                if 15 < area < 400:  # Smaller upper limit to exclude large decorative items
+                # More restrictive size filtering
+                if 50 < area < 500:  # Increased minimum area from 30 to 50, reduced max from 800 to 500
                     x, y, w, h = cv2.boundingRect(contour)
-                    
-                    # Calculate additional features
                     aspect_ratio = w / h if h > 0 else 0
-                    perimeter = cv2.arcLength(contour, True)
-                    circularity = 4 * np.pi * area / (perimeter * perimeter) if perimeter > 0 else 0
                     
-                    # More strict filtering criteria
-                    if (0.4 < aspect_ratio < 2.5 and  # Allow slightly more elongated shapes for acne
-                        circularity < 0.85):  # Exclude very circular objects (likely bindis/moles)
-                        
-                        # Additional check: analyze the region's color uniformity
-                        mask_region = np.zeros(gray.shape, dtype=np.uint8)
-                        cv2.fillPoly(mask_region, [contour], 255)
-                        region_pixels = face_region[mask_region == 255]
-                        
-                        if len(region_pixels) > 0:
-                            # Check color variance (acne typically has more color variation)
-                            color_std = np.std(region_pixels, axis=0).mean()
-                            
-                            # Check if it's positioned in typical acne locations (avoid forehead center for bindis)
-                            face_height, face_width = face_region.shape[:2]
-                            center_x, center_y = x + w//2, y + h//2
-                            
-                            # Avoid the upper-center forehead area where bindis are typically placed
-                            is_bindi_region = (center_y < face_height * 0.4 and 
-                                            abs(center_x - face_width/2) < face_width * 0.15)
-                            
-                            # Filter out based on color uniformity and position
-                            if color_std > 8 and not is_bindi_region:  # Acne has more color variation
-                                acne_spots.append({
-                                    "x": int(x), "y": int(y), "width": int(w), "height": int(h),
-                                    "area": int(area)
-                                })
+                    # More restrictive aspect ratio and additional shape validation
+                    if 0.6 < aspect_ratio < 1.7:  # More circular shapes only
+                        # Additional validation: check circularity
+                        perimeter = cv2.arcLength(contour, True)
+                        if perimeter > 0:
+                            circularity = 4 * np.pi * area / (perimeter * perimeter)
+                            # Only accept reasonably circular shapes
+                            if circularity > 0.3:  # Circularity threshold
+                                # Check if the spot has sufficient contrast with surrounding area
+                                roi = gray[y:y+h, x:x+w]
+                                if roi.size > 0:
+                                    spot_mean = np.mean(roi)
+                                    
+                                    # Get surrounding area for contrast check
+                                    margin = 5
+                                    y_start = max(0, y - margin)
+                                    y_end = min(gray.shape[0], y + h + margin)
+                                    x_start = max(0, x - margin)
+                                    x_end = min(gray.shape[1], x + w + margin)
+                                    
+                                    surrounding_roi = gray[y_start:y_end, x_start:x_end]
+                                    surrounding_mean = np.mean(surrounding_roi)
+                                    
+                                    # Only consider it acne if there's sufficient contrast
+                                    contrast_ratio = abs(spot_mean - surrounding_mean) / surrounding_mean if surrounding_mean > 0 else 0
+                                    
+                                    if contrast_ratio > 0.15:  # Minimum contrast threshold
+                                        acne_spots.append({
+                                            "x": int(x), "y": int(y), "width": int(w), "height": int(h),
+                                            "area": int(area)
+                                        })
             
-            # Calculate results
             num_spots = len(acne_spots)
             avg_size = np.mean([spot["area"] for spot in acne_spots]) if acne_spots else 0
             
-            # Severity classification
+            # More conservative severity assessment
             if num_spots == 0:
                 severity = "Clear"
                 score = 0
-            elif num_spots <= 3:
+            elif num_spots <= 2:  # Reduced from 3 to 2
                 severity = "Mild"
-                score = 0.25
-            elif num_spots <= 8:
+                score = 0.2
+            elif num_spots <= 5:  # Reduced from 8 to 5
                 severity = "Moderate"
-                score = 0.5
-            elif num_spots <= 15:
+                score = 0.4
+            elif num_spots <= 10:  # Reduced from 15 to 10
                 severity = "Moderate-Severe"
-                score = 0.75
+                score = 0.7
             else:
                 severity = "Severe"
                 score = 1.0
@@ -135,13 +120,14 @@ class SkinMetricsAnalyzer:
             
         except Exception as e:
             logger.error(f"Error analyzing acne: {e}")
+            # Return more specific error information for debugging
             return {
-                "severity": "Unknown", 
-                "count": 0, 
-                "score": 0, 
-                "avg_size": 0, 
-                "spots": [], 
-                "description": "Analysis failed"
+                "severity": "Error",
+                "count": 0,
+                "score": 0,
+                "avg_size": 0,
+                "spots": [],
+                "description": f"Analysis failed: {str(e)}"
             }
 
 # Global instance

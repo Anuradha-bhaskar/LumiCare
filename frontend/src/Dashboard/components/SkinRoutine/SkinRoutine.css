@@ -262,43 +262,105 @@
 
 .ingredient-card {
   background: #fff;
-  width: min(520px, 92vw);
-  max-height: 80vh;
+  width: min(500px, 92vw);
+  max-height: 78vh;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  padding: 1.25rem 1.25rem 1rem 1.25rem;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+  padding: 1rem 1rem 1rem 1rem;
   position: relative;
   overflow-y: auto;
+  border: 1px solid var(--border-color);
 }
 
-.ingredient-card h3 {
-  margin: 0 0 0.5rem 0;
+.ingredient-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.25rem 0.5rem 0.25rem;
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.ingredient-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--peach-light);
+  color: var(--peach-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ingredient-title {
+  margin: 0;
   color: var(--text-primary);
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .ingredient-card .benefits {
   color: var(--text-secondary);
-  margin-bottom: 0.75rem;
+  margin: 0.75rem 0 0.5rem 0;
+  line-height: 1.55;
 }
 
-.ingredient-card h4 {
-  margin: 1rem 0 0.5rem 0;
+.ingredient-section {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.25rem 0.25rem 0.25rem;
+  border-radius: 8px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem 0;
   color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.section-title .icon {
+  color: var(--peach-primary);
+}
+
+.section-title.warning .icon {
+  color: #dc2626;
 }
 
 .ingredient-card ul {
-  padding-left: 1.25rem;
+  padding-left: 1.1rem;
   margin: 0;
+}
+
+.ingredient-card li {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 0.4rem;
 }
 
 .close-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  border: none;
+  top: 8px;
+  right: 8px;
+  border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
   color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 4px;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.close-btn:hover {
+  background: var(--peach-light);
+  color: var(--peach-primary);
+  border-color: var(--peach-primary);
 }
 
 .weekly-treatments {
@@ -810,7 +872,6 @@
     gap: 1rem;
   }
 }
-
 /* Header actions alignment */
 .header-actions {
   margin-top: 1rem;
@@ -818,3 +879,4 @@
   justify-content: center;
   gap: 0.75rem;
 }
+
