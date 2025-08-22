@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { TrendingUp, TrendingDown, ArrowRight, BarChart3, Calendar, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, ArrowRight, BarChart3, Calendar, Target, Filter, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, Brush } from 'recharts';
 import './ProgressTracker.css';
 
@@ -9,6 +9,8 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('progress'); // progress | history
+  const [showDateFilter, setShowDateFilter] = useState(false);
+  const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
 
   useEffect(() => {
     setHistory(analysisHistory || []);
@@ -59,6 +61,23 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
       new Date(analysis.timestamp) >= cutoffDate
     );
   }, [history, selectedTimeframe]);
+
+  // Apply date filter to history for the history tab
+  const dateFilteredHistory = useMemo(() => {
+    if (activeTab !== 'history' || (!dateFilter.startDate && !dateFilter.endDate)) {
+      return filteredHistory;
+    }
+
+    return filteredHistory.filter(analysis => {
+      const analysisDate = new Date(analysis.timestamp);
+      const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
+      const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
+
+      if (startDate && analysisDate < startDate) return false;
+      if (endDate && analysisDate > endDate) return false;
+      return true;
+    });
+  }, [filteredHistory, dateFilter, activeTab]);
 
   // Helper conversions
   const toPercent = (value) => {
@@ -169,18 +188,17 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
       return acc;
     }, {});
 
-    const overallChange = overallBefore != null && overallNow != null ? (overallNow - overallBefore) : null;
-
     return {
       beforeMetrics,
       nowMetrics,
-      improvements: { ...improvements, overall: overallChange },
+      improvements,
       totalAnalyses: filteredHistory.length,
       timeSpan: Math.ceil((new Date(filteredHistory[0].timestamp) - new Date(filteredHistory[filteredHistory.length - 1].timestamp)) / (1000 * 60 * 60 * 24))
     };
   }, [chronological, filteredHistory, trendMetricKeys]);
 
   // Chart series: chronological order and dynamic metric keys
+  // Only include dates where both skinHealth and at least one metric trend is present
   const chartSeries = useMemo(() => {
     console.log('Building chart series from chronological data:', chronological);
     console.log('Available trend metric keys:', trendMetricKeys);
@@ -198,8 +216,15 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
       return row;
     });
 
-    console.log('Final chart series:', allSeries);
-    return allSeries;
+    // Filter to only include dates where both skinHealth and at least one metric trend are present
+    const filteredSeries = allSeries.filter((row) => {
+      const hasSkinHealth = row.skinHealth !== null;
+      const hasMetricTrend = trendMetricKeys.some((key) => row[key] !== null);
+      return hasSkinHealth && hasMetricTrend;
+    });
+
+    console.log('Final chart series (filtered for both skin health and metrics):', filteredSeries);
+    return filteredSeries;
   }, [chronological, trendMetricKeys]);
 
   const colorPalette = ['#4caf50', '#ff9800', '#9c27b0', '#03a9f4', '#f44336', '#795548', '#607d8b', '#8bc34a', '#ff5722', '#3f51b5'];
@@ -346,14 +371,17 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
                       <span className="stat-label">Days Tracked</span>
                     </div>
                     <div className="stat">
-                      <span 
-                        className="stat-number"
-                        style={{ color: getImprovementColor('skinHealth', progressData.improvements.overall) }}
-                      >
-                        {progressData.improvements.overall != null && progressData.improvements.overall > 0 ? '+' : ''}
-                        {progressData.improvements.overall != null ? progressData.improvements.overall.toFixed(1) : '—'}%
+                      <span className="stat-number">
+                        {(() => {
+                          const healthScores = chronological
+                            .map(a => a?.analysis?.skinHealth)
+                            .filter(h => typeof h === 'number');
+                          if (healthScores.length === 0) return '—';
+                          const avg = healthScores.reduce((sum, score) => sum + score, 0) / healthScores.length;
+                          return Math.round(avg) + '%';
+                        })()}
                       </span>
-                      <span className="stat-label">Overall Change</span>
+                      <span className="stat-label">Average Health</span>
                     </div>
                   </div>
                 </div>
@@ -468,13 +496,59 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
 
       {activeTab === 'history' && (
         <div className="analysis-timeline">
-          <h3>Analysis History</h3>
+          <div className="history-header">
+            <h3>Analysis History</h3>
+            <div className="history-controls">
+              <button 
+                className={`filter-btn ${showDateFilter ? 'active' : ''}`}
+                onClick={() => setShowDateFilter(!showDateFilter)}
+              >
+                <Filter size={16} />
+                Date Filter
+              </button>
+              {(dateFilter.startDate || dateFilter.endDate) && (
+                <button 
+                  className="clear-filter-btn"
+                  onClick={() => setDateFilter({ startDate: '', endDate: '' })}
+                >
+                  <X size={16} />
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {showDateFilter && (
+            <div className="date-filter-panel">
+              <div className="date-inputs">
+                <div className="date-input-group">
+                  <label>From Date:</label>
+                  <input
+                    type="date"
+                    value={dateFilter.startDate}
+                    onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="date-input"
+                  />
+                </div>
+                <div className="date-input-group">
+                  <label>To Date:</label>
+                  <input
+                    type="date"
+                    value={dateFilter.endDate}
+                    onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="date-input"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="timeline">
-            {filteredHistory.map((analysis, index) => (
+            {dateFilteredHistory.map((analysis, index) => (
               <div key={analysis.id || index} className="timeline-item">
                 <div className="timeline-marker">
                   <div className="marker-dot"></div>
-                  {index < filteredHistory.length - 1 && <div className="marker-line"></div>}
+                  {index < dateFilteredHistory.length - 1 && <div className="marker-line"></div>}
                 </div>
                 <div className="timeline-content">
                   <div className="timeline-date">{formatDate(analysis.timestamp)}</div>

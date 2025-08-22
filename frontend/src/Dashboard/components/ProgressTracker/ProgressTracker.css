@@ -239,11 +239,116 @@
   margin-bottom: 2rem;
 }
 
-.analysis-timeline h3 {
-  color: var(--text-primary);
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.history-header h3 {
+  color: var(--text-primary);
   font-size: 1.2rem;
   font-weight: 600;
+  margin: 0;
+}
+
+.history-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  background: var(--peach-light);
+  color: var(--text-primary);
+  border-color: var(--peach-primary);
+}
+
+.filter-btn.active {
+  background: var(--peach-primary);
+  color: white;
+  border-color: var(--peach-primary);
+}
+
+.clear-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  background: white;
+  color: var(--error);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-filter-btn:hover {
+  background: var(--error);
+  color: white;
+}
+
+.date-filter-panel {
+  background: var(--peach-light);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.date-inputs {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 150px;
+}
+
+.date-input-group label {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.date-input {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: white;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: var(--peach-primary);
+  box-shadow: 0 0 0 2px rgba(255, 183, 158, 0.2);
 }
 
 .timeline {
