@@ -311,33 +311,6 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
         {error && <p style={{ color: 'var(--error)', marginTop: '0.5rem' }}>{error}</p>}
       </div>
 
-      <div className="timeframe-selector">
-        <button 
-          className={`timeframe-btn ${selectedTimeframe === 'all' ? 'active' : ''}`}
-          onClick={() => setSelectedTimeframe('all')}
-        >
-          All Time
-        </button>
-        <button 
-          className={`timeframe-btn ${selectedTimeframe === '3months' ? 'active' : ''}`}
-          onClick={() => setSelectedTimeframe('3months')}
-        >
-          3 Months
-        </button>
-        <button 
-          className={`timeframe-btn ${selectedTimeframe === 'month' ? 'active' : ''}`}
-          onClick={() => setSelectedTimeframe('month')}
-        >
-          1 Month
-        </button>
-        <button 
-          className={`timeframe-btn ${selectedTimeframe === 'week' ? 'active' : ''}`}
-          onClick={() => setSelectedTimeframe('week')}
-        >
-          1 Week
-        </button>
-      </div>
-
       <div className="section-toggle">
         <button 
           className={`toggle-btn ${activeTab === 'progress' ? 'active' : ''}`}
@@ -373,15 +346,17 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
                     <div className="stat">
                       <span className="stat-number">
                         {(() => {
-                          const healthScores = chronological
-                            .map(a => a?.analysis?.skinHealth)
-                            .filter(h => typeof h === 'number');
-                          if (healthScores.length === 0) return '—';
-                          const avg = healthScores.reduce((sum, score) => sum + score, 0) / healthScores.length;
-                          return Math.round(avg) + '%';
+                          if (!progressData || !progressData.improvements) return '—';
+                          const improvingMetrics = Object.entries(progressData.improvements)
+                            .filter(([key, value]) => {
+                              if (key === 'overall' || value == null) return false;
+                              const isHigherBetter = ['hydration', 'skinHealth'].includes(key);
+                              return isHigherBetter ? value > 2 : value < -2;
+                            }).length;
+                          return improvingMetrics;
                         })()}
                       </span>
-                      <span className="stat-label">Average Health</span>
+                      <span className="stat-label">Areas Improved</span>
                     </div>
                   </div>
                 </div>
@@ -389,7 +364,24 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
 
               {/* Overall Skin Health Trend */}
               <div className="metrics-comparison" style={{ marginBottom: '2rem' }}>
-                <h3>Overall Skin Health Trend</h3>
+                <div className="chart-header">
+                  <h3>Overall Skin Health Trend</h3>
+                  <div className="chart-filter">
+                    <div className="filter-select-wrapper">
+                      <Filter size={16} className="filter-icon" />
+                      <select 
+                        value={selectedTimeframe}
+                        onChange={(e) => setSelectedTimeframe(e.target.value)}
+                        className="chart-filter-select"
+                      >
+                        <option value="all">All Time</option>
+                        <option value="3months">3 Months</option>
+                        <option value="month">1 Month</option>
+                        <option value="week">1 Week</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
                 <div className="chart-container chart-health">
                   <ResponsiveContainer>
                     <AreaChart data={chartSeries} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -414,7 +406,24 @@ const ProgressTracker = ({ analysisHistory, clerkUserId }) => {
           {/* Metric Trends (All metrics with >= 2 points) */}
           {trendMetricKeys.length > 0 && (
             <div className="metrics-comparison">
-              <h3>Metric Trends</h3>
+              <div className="chart-header">
+                <h3>Metric Trends</h3>
+                <div className="chart-filter">
+                  <div className="filter-select-wrapper">
+                    <Filter size={16} className="filter-icon" />
+                    <select 
+                      value={selectedTimeframe}
+                      onChange={(e) => setSelectedTimeframe(e.target.value)}
+                      className="chart-filter-select"
+                    >
+                      <option value="all">All Time</option>
+                      <option value="3months">3 Months</option>
+                      <option value="month">1 Month</option>
+                      <option value="week">1 Week</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
               <div className="chart-container chart-metrics">
                 <ResponsiveContainer>
                   <LineChart data={chartSeries} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>

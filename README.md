@@ -1,44 +1,85 @@
-# Lumi Care
+# LumiCare - AI-Powered Skin Health Analysis Platform
+
+## 🎯 Project Overview
+
+LumiCare is a comprehensive skin health analysis platform that leverages computer vision and artificial intelligence to provide personalized skincare insights. The platform analyzes skin conditions in real-time using advanced image processing algorithms, offering users detailed assessments of their skin health and personalized recommendations.
+
+### Key Features
+- **Real-time Skin Analysis**: Advanced computer vision algorithms for detecting skin conditions
+- **AI-Powered Diagnostics**: Machine learning models for skin texture, acne, and pigmentation analysis
+- **Personalized Recommendations**: Customized skincare routines based on analysis results
+- **Progress Tracking**: Monitor skin health improvements over time
 
 
-## Prerequisites
+## 🛠️ Tech Stack
 
-- Python 3.x
+### Backend
+- **Framework**: FastAPI (Python)
+- **Database**: MongoDB with PyMongo
+- **Authentication**: Clerk Backend API
+- **Computer Vision**: OpenCV, MediaPipe
+
+### Frontend
+- **Framework**: React.js 19
+
+
+### Development Tools
+
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.12+
+- Node.js 18+
 - UV (Python package manager)
-- Node.js
+- MongoDB instance
 
-## Installation
+### Installation
 
-Clone the repository:
-```bash
-git clone <repository-url>
-```
-### For backend
-
+#### Backend Setup
 ```bash
 cd backend
-```
 
-1. Install UV if you haven't already:
-```bash
+# Install UV if not already installed
 pip install uv
-```
 
-2. Create and activate a virtual environment:
-```bash
+# Install dependencies and create virtual environment
 uv sync
-```
 
-3. Run the main application:
-```bash
+# Run the application
 uv run main.py
 ```
 
-### For frontend
-
+#### Frontend Setup
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Start development server
 npm run dev
 ```
+
+## 📁 Project Structure
+
+```
+LumiCare/
+├── backend/                 # FastAPI backend
+│   ├── src/
+│   │   ├── routes/         # API endpoints
+│   │   ├── services/       # Business logic
+│   │   ├── models/         # Data models
+│   │   └── database/       # Database configuration
+│   └── main.py            # Application entry point
+├── frontend/               # React frontend
+│   ├── src/
+│   │   ├── components/     # Reusable UI components
+│   │   ├── pages/          # Page components
+│   │   ├── auth/           # Authentication components
+│   │   └── Dashboard/      # Dashboard components
+│   └── package.json
+└── README.md
+```
+
 
