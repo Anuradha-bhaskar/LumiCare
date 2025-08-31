@@ -29,7 +29,6 @@ LumiCare is a comprehensive skin health analysis platform that leverages compute
 - Python 3.12+
 - Node.js 18+
 - UV (Python package manager)
-- MongoDB instance
 
 ### Installation
 
