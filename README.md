@@ -23,9 +23,6 @@ LumiCare is a comprehensive skin health analysis platform that leverages compute
 - **Framework**: React.js 19
 
 
-### Development Tools
-
-
 ## 🚀 Getting Started
 
 ### Prerequisites
